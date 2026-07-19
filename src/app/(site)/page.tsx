@@ -26,8 +26,27 @@ export default async function HomePage() {
 
   const occupiedCount = points.filter((p) => p.occupied).length;
 
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Zemné a výkopové práce — Metraco s.r.o.",
+    url: "https://www.zemneavykopoveprace.sk",
+    email: "metracosro@gmail.com",
+    telephone: "+421944208204",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Dolné Obdokovce 64",
+      postalCode: "951 02",
+      addressCountry: "SK",
+    },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+      />
       {/* HERO */}
       <section className="bg-asphalt text-paper">
         <div className="mx-auto max-w-6xl px-4 py-24">
