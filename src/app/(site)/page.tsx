@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { REGIONS, districtProfileSlug } from "@/lib/districts";
 import type { DistrictPoint } from "@/lib/geo";
 import DistrictMap from "@/components/DistrictMap";
+import { getBlockHtml } from "@/lib/pageContent";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function HomePage() {
     }));
 
   const occupiedCount = points.filter((p) => p.occupied).length;
+  const heroHtml = await getBlockHtml("home_hero");
 
   const orgJsonLd = {
     "@context": "https://schema.org",
@@ -56,11 +58,10 @@ export default async function HomePage() {
           <h1 className="mt-4 max-w-3xl text-4xl uppercase leading-[1.05] sm:text-5xl md:text-6xl">
             Nájdite firmu vo svojom okrese a zavolajte jej
           </h1>
-          <p className="mt-6 max-w-xl text-lg text-paper/80">
-            Katalóg overených firiem na výkopové práce, dopravu kameniva a
-            búranie. {districts.length} okresov, jeden partner na okres, žiadne
-            cudzie reklamy.
-          </p>
+          <div
+            className="mt-6 max-w-xl text-lg text-paper/80 [&_a]:text-jcb [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: heroHtml }}
+          />
           <div className="mt-10 flex flex-wrap gap-4">
             <Link
               href="/okresy"

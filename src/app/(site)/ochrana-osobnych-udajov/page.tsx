@@ -16,9 +16,9 @@ export default function GdprPage() {
       </p>
 
       <div className="mt-6 border-l-4 border-jcb bg-concrete-2 p-4 text-sm text-asphalt/80">
-        <strong>Poznámka:</strong> Tento text je rozumný základ, nie právne
-        poradenstvo. Pred zverejnením ho musí skontrolovať právnik a doplniť miesta
-        označené <em>[na doplnenie]</em>.
+        <strong>Poznámka:</strong> Tento text je pripravený základ, nie právne
+        poradenstvo. Pred zverejnením odporúčame kontrolu právnikom a overenie údajov
+        o sprostredkovateľoch (hosting, e-mail) podľa reálne nasadených služieb.
       </div>
 
       <div className="mt-10 space-y-8">
@@ -60,19 +60,20 @@ export default function GdprPage() {
         <section>
           <h2 className="mb-3 text-xl uppercase">4. Doba uchovávania</h2>
           <p className="text-asphalt/90">
-            Údaje uchovávame len po dobu nevyhnutnú na daný účel, resp. po zákonom
-            stanovenú dobu (napr. účtovné doklady 10 rokov). <em>[na doplnenie: konkrétne
-            lehoty pre dopyty a objednávky]</em>.
+            Údaje uchovávame len po dobu nevyhnutnú na daný účel: dopyty a objednávky
+            po dobu vybavenia a následne max. 3 roky od poslednej komunikácie (pre prípad
+            reklamácie či opakovaného kontaktu), účtovné a daňové doklady po zákonom
+            stanovenú dobu 10 rokov. Po uplynutí lehôt údaje vymažeme.
           </p>
         </section>
 
         <section>
           <h2 className="mb-3 text-xl uppercase">5. Príjemcovia a sprostredkovatelia</h2>
           <p className="text-asphalt/90">
-            Údaje neposkytujeme tretím stranám na marketingové účely. Sprostredkovatelia:
-            poskytovateľ hostingu, e-mailová služba <em>[na doplnenie: konkrétni
-            poskytovatelia — hosting, e-mail]</em>. Dopyt zadaný cez profil okresu sa
-            zasiela príslušnému Partnerovi.
+            Údaje neposkytujeme tretím stranám na marketingové účely. Sprostredkovatelia,
+            ktorí spracúvajú údaje v našom mene: poskytovateľ hostingu (HostCreators, s.r.o.)
+            a e-mailová služba (Resend). Dopyt zadaný cez profil okresu sa zasiela
+            príslušnému Partnerovi, ktorý vaše údaje spracúva na účel vybavenia dopytu.
           </p>
         </section>
 
@@ -88,9 +89,10 @@ export default function GdprPage() {
         <section>
           <h2 className="mb-3 text-xl uppercase">7. Cookies</h2>
           <p className="text-asphalt/90">
-            Portál používa len technicky nevyhnutné cookies. Ak bude nasadená
-            analytika, použije sa riešenie bez potreby súhlasu, prípadne doplníme cookie
-            lištu. <em>[na doplnenie podľa nasadenej analytiky]</em>.
+            Portál používa len technicky nevyhnutné cookies potrebné na jeho fungovanie
+            (napr. prihlásenie do administrácie). Nepoužívame reklamné ani sledovacie
+            cookies tretích strán. Ak v budúcnosti nasadíme analytiku, použijeme riešenie
+            bez potreby súhlasu (napr. Plausible), prípadne doplníme cookie lištu.
           </p>
         </section>
       </div>

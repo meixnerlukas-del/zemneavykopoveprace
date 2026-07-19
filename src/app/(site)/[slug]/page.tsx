@@ -8,6 +8,7 @@ import {
   districtProfileSlug,
   youtubeId,
 } from "@/lib/districts";
+import { haversineKm } from "@/lib/geo";
 import SeatMap from "@/components/SeatMap";
 import Gallery from "@/components/Gallery";
 import InquiryForm from "@/components/InquiryForm";
@@ -69,12 +70,22 @@ export default async function DistrictProfilePage({ params }: Params) {
   const profile = district.profile;
   const published = profile?.status === "PUBLISHED";
 
-  const neighbors = await prisma.district.findMany({
-    where: { region: district.region, id: { not: district.id } },
-    orderBy: { name: "asc" },
-    take: 8,
-    select: { name: true, slug: true },
+  // Susedné okresy = geograficky najbližšie podľa centroidov (aj cez hranice krajov)
+  const allDistricts = await prisma.district.findMany({
+    where: { id: { not: district.id }, lat: { not: null }, lng: { not: null } },
+    select: { name: true, slug: true, lat: true, lng: true },
   });
+  const neighbors =
+    district.lat != null && district.lng != null
+      ? allDistricts
+          .map((d) => ({
+            name: d.name,
+            slug: d.slug,
+            dist: haversineKm(district.lat!, district.lng!, d.lat!, d.lng!),
+          }))
+          .sort((a, b) => a.dist - b.dist)
+          .slice(0, 6)
+      : allDistricts.slice(0, 6).map((d) => ({ name: d.name, slug: d.slug }));
 
   // JSON-LD
   const breadcrumb = {

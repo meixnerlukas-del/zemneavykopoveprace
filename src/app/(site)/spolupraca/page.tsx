@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatEur, PRICE_PER_DISTRICT, additionalDistrictPrice } from "@/lib/pricing";
+import { getBlockHtml } from "@/lib/pageContent";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function SpolupracaPage() {
   const freeCount = await prisma.district.count({
     where: { profile: { status: "FREE" } },
   });
+  const introHtml = await getBlockHtml("spolupraca_intro");
 
   return (
     <>
@@ -32,11 +34,10 @@ export default async function SpolupracaPage() {
           <h1 className="text-3xl uppercase leading-tight sm:text-5xl">
             Staňte sa exkluzívnym dodávateľom vo svojom okrese
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-paper/80">
-            Hľadáte spôsob, ako zvýšiť viditeľnosť firmy a získať viac zákaziek?
-            Ponúkame jedinečnú možnosť stať sa jediným dodávateľom zemných a
-            výkopových prác pre váš okres.
-          </p>
+          <div
+            className="mt-6 max-w-2xl text-lg text-paper/80 [&_a]:text-jcb [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: introHtml }}
+          />
           <div className="mt-8">
             <Link
               href="/objednavka"
