@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { DISTRICTS, toSlug } from "../src/lib/districts";
+import { DISTRICTS, DISTRICT_CENTROIDS, toSlug } from "../src/lib/districts";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -9,10 +9,11 @@ async function main() {
   let created = 0;
   for (const d of DISTRICTS) {
     const slug = toSlug(d.name);
+    const [lat, lng] = DISTRICT_CENTROIDS[d.code] ?? [null, null];
     const district = await prisma.district.upsert({
       where: { code: d.code },
-      update: { name: d.name, slug, region: d.region },
-      create: { name: d.name, slug, code: d.code, region: d.region },
+      update: { name: d.name, slug, region: d.region, lat, lng },
+      create: { name: d.name, slug, code: d.code, region: d.region, lat, lng },
     });
     const existing = await prisma.profile.findUnique({
       where: { districtId: district.id },

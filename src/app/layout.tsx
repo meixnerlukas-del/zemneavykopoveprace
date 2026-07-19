@@ -3,6 +3,7 @@ import { Oswald, Inter } from "next/font/google";
 import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import TireTrackCursor from "@/components/TireTrackCursor";
 
 const oswald = Oswald({
   variable: "--font-oswald",
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body
         className={`${oswald.variable} ${inter.variable} flex min-h-screen flex-col bg-paper antialiased`}
       >
+        <TireTrackCursor />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

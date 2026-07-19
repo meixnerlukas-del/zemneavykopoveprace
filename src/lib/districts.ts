@@ -116,6 +116,90 @@ export const DISTRICTS: DistrictSeed[] = [
   { name: "Trebišov", code: "811", region: "Košický kraj" },
 ];
 
+// Približné centroidy (súradnice okresného mesta) kľúčované ŠÚSR kódom.
+// Stačia na umiestnenie pinu a výpočet najbližšieho okresu; nie sú katastrálne presné.
+export const DISTRICT_CENTROIDS: Record<string, [number, number]> = {
+  "101": [48.145, 17.11], // Bratislava I
+  "102": [48.155, 17.17], // Bratislava II
+  "103": [48.18, 17.13], // Bratislava III
+  "104": [48.17, 17.05], // Bratislava IV
+  "105": [48.11, 17.11], // Bratislava V
+  "106": [48.436, 17.021], // Malacky
+  "107": [48.289, 17.267], // Pezinok
+  "108": [48.219, 17.4], // Senec
+  "201": [47.992, 17.612], // Dunajská Streda
+  "202": [48.19, 17.727], // Galanta
+  "203": [48.431, 17.802], // Hlohovec
+  "204": [48.591, 17.826], // Piešťany
+  "205": [48.68, 17.366], // Senica
+  "206": [48.845, 17.227], // Skalica
+  "207": [48.377, 17.588], // Trnava
+  "301": [48.72, 18.257], // Bánovce nad Bebravou
+  "302": [48.997, 18.233], // Ilava
+  "303": [48.752, 17.567], // Myjava
+  "304": [48.757, 17.831], // Nové Mesto nad Váhom
+  "305": [48.628, 18.379], // Partizánske
+  "306": [49.116, 18.427], // Považská Bystrica
+  "307": [48.774, 18.627], // Prievidza
+  "308": [49.124, 18.328], // Púchov
+  "309": [48.894, 18.041], // Trenčín
+  "401": [47.764, 18.129], // Komárno
+  "402": [48.216, 18.606], // Levice
+  "403": [48.308, 18.087], // Nitra
+  "404": [47.985, 18.161], // Nové Zámky
+  "405": [48.153, 17.881], // Šaľa
+  "406": [48.556, 18.176], // Topoľčany
+  "407": [48.383, 18.398], // Zlaté Moravce
+  "501": [49.223, 18.558], // Bytča
+  "502": [49.436, 18.789], // Čadca
+  "503": [49.209, 19.297], // Dolný Kubín
+  "504": [49.301, 18.784], // Kysucké Nové Mesto
+  "505": [49.083, 19.611], // Liptovský Mikuláš
+  "506": [49.065, 18.921], // Martin
+  "507": [49.407, 19.482], // Námestovo
+  "508": [49.078, 19.308], // Ružomberok
+  "509": [48.861, 18.864], // Turčianske Teplice
+  "510": [49.336, 19.556], // Tvrdošín
+  "511": [49.223, 18.74], // Žilina
+  "601": [48.736, 19.146], // Banská Bystrica
+  "602": [48.448, 18.896], // Banská Štiavnica
+  "603": [48.804, 19.64], // Brezno
+  "604": [48.56, 19.418], // Detva
+  "605": [48.355, 19.066], // Krupina
+  "606": [48.332, 19.667], // Lučenec
+  "607": [48.43, 19.795], // Poltár
+  "608": [48.683, 20.117], // Revúca
+  "609": [48.383, 20.022], // Rimavská Sobota
+  "610": [48.209, 19.351], // Veľký Krtíš
+  "611": [48.575, 19.126], // Zvolen
+  "612": [48.483, 18.716], // Žarnovica
+  "613": [48.59, 18.851], // Žiar nad Hronom
+  "701": [49.292, 21.276], // Bardejov
+  "702": [48.933, 21.911], // Humenné
+  "703": [49.135, 20.428], // Kežmarok
+  "704": [49.024, 20.589], // Levoča
+  "705": [49.271, 21.905], // Medzilaborce
+  "706": [49.056, 20.298], // Poprad
+  "707": [48.998, 21.239], // Prešov
+  "708": [49.101, 21.099], // Sabinov
+  "709": [48.988, 22.153], // Snina
+  "710": [49.298, 20.688], // Stará Ľubovňa
+  "711": [49.204, 21.651], // Stropkov
+  "712": [49.307, 21.567], // Svidník
+  "713": [48.888, 21.683], // Vranov nad Topľou
+  "801": [48.856, 20.937], // Gelnica
+  "802": [48.73, 21.25], // Košice I
+  "803": [48.7, 21.23], // Košice II
+  "804": [48.735, 21.29], // Košice III
+  "805": [48.7, 21.27], // Košice IV
+  "806": [48.75, 21.1], // Košice-okolie
+  "807": [48.754, 21.919], // Michalovce
+  "808": [48.661, 20.532], // Rožňava
+  "809": [48.745, 22.18], // Sobrance
+  "810": [48.944, 20.563], // Spišská Nová Ves
+  "811": [48.626, 21.719], // Trebišov
+};
+
 /** Odstráni diakritiku, malé písmená, medzery a interpunkciu na pomlčky. */
 export function toSlug(input: string): string {
   return input

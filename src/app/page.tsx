@@ -1,8 +1,30 @@
 import Link from "next/link";
-import { DISTRICTS } from "@/lib/districts";
+import { prisma } from "@/lib/prisma";
+import { REGIONS, districtProfileSlug } from "@/lib/districts";
+import type { DistrictPoint } from "@/lib/geo";
+import DistrictMap from "@/components/DistrictMap";
 
-export default function HomePage() {
-  const districtCount = DISTRICTS.length;
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const districts = await prisma.district.findMany({
+    orderBy: { code: "asc" },
+    include: { profile: { select: { status: true, displayName: true } } },
+  });
+
+  const points: DistrictPoint[] = districts
+    .filter((d) => d.lat !== null && d.lng !== null)
+    .map((d) => ({
+      slug: d.slug,
+      name: d.name,
+      region: d.region,
+      lat: d.lat as number,
+      lng: d.lng as number,
+      occupied: d.profile?.status === "PUBLISHED",
+      displayName: d.profile?.displayName ?? null,
+    }));
+
+  const occupiedCount = points.filter((p) => p.occupied).length;
 
   return (
     <>
@@ -17,7 +39,7 @@ export default function HomePage() {
           </h1>
           <p className="mt-6 max-w-xl text-lg text-paper/80">
             Katalóg overených firiem na výkopové práce, dopravu kameniva a
-            búranie. {districtCount} okresov, jeden partner na okres, žiadne
+            búranie. {districts.length} okresov, jeden partner na okres, žiadne
             cudzie reklamy.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
@@ -37,17 +59,51 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* MAPA — placeholder (Fáza 3: Google Maps s 79 pinmi) */}
+      {/* MAPA */}
       <section className="bg-concrete">
-        <div className="mx-auto max-w-6xl px-4 py-20">
+        <div className="mx-auto max-w-6xl px-4 py-16">
           <h2 className="section-title text-2xl">Mapa okresov</h2>
-          <div className="flex min-h-[320px] items-center justify-center border-2 border-dashed border-muted/40 bg-concrete-2 text-center text-muted">
-            <p className="max-w-md px-6">
-              Tu bude interaktívna Google mapa Slovenska so 79 pinmi — jeden pin
-              na okres, geolokácia najbližšieho zhotoviteľa.
-              <br />
-              <span className="text-sm">(Fáza 3)</span>
-            </p>
+          <p className="mb-8 max-w-2xl text-muted">
+            Kliknite na svoj okres na mape, alebo si nechajte nájsť najbližšieho
+            zhotoviteľa podľa vašej polohy.
+          </p>
+          <DistrictMap points={points} />
+        </div>
+      </section>
+
+      {/* ZOZNAM OKRESOV — mobilná alternatíva mapy + SEO prelinkovanie */}
+      <section className="bg-paper">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <h2 className="section-title text-2xl">Okresy podľa krajov</h2>
+          <div className="mt-8 space-y-10">
+            {REGIONS.map((region) => (
+              <div key={region}>
+                <h3 className="mb-3 text-sm uppercase tracking-[0.08em] text-muted">
+                  {region}
+                </h3>
+                <ul className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
+                  {points
+                    .filter((p) => p.region === region)
+                    .map((p) => (
+                      <li key={p.slug}>
+                        <Link
+                          href={`/${districtProfileSlug(p.slug)}`}
+                          className="group flex items-center gap-2 py-1"
+                        >
+                          <span
+                            className="inline-block h-2.5 w-2.5"
+                            style={{
+                              background: p.occupied ? "#F2B01E" : "#C4C2BC",
+                            }}
+                            aria-hidden
+                          />
+                          <span className="group-hover:text-jcb">{p.name}</span>
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -60,8 +116,9 @@ export default function HomePage() {
               Váš okres je ešte voľný?
             </h2>
             <p className="mt-1 text-jcb-ink/80">
-              Exkluzivita v okrese · 196,80 € s DPH / rok · zľava 25 % na každý
-              ďalší okres.
+              {occupiedCount} z {points.length} okresov je obsadených ·
+              exkluzivita · 196,80 € s DPH / rok · zľava 25 % na každý ďalší
+              okres.
             </p>
           </div>
           <Link
