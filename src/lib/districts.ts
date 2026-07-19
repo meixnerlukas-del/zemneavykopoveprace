@@ -210,7 +210,24 @@ export function toSlug(input: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+export const PROFILE_SLUG_PREFIX = "zemne-a-vykopove-prace-";
+
 /** Slug profilovej URL, napr. "zemne-a-vykopove-prace-nitra". */
 export function districtProfileSlug(districtSlug: string): string {
-  return `zemne-a-vykopove-prace-${districtSlug}`;
+  return `${PROFILE_SLUG_PREFIX}${districtSlug}`;
+}
+
+/** Z profilového slugu vytiahne slug okresu, alebo null ak nezodpovedá vzoru. */
+export function districtSlugFromProfileSlug(fullSlug: string): string | null {
+  if (!fullSlug.startsWith(PROFILE_SLUG_PREFIX)) return null;
+  const rest = fullSlug.slice(PROFILE_SLUG_PREFIX.length);
+  return rest.length > 0 ? rest : null;
+}
+
+/** Extrahuje YouTube video ID z rôznych foriem URL. */
+export function youtubeId(url: string): string | null {
+  const m = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/,
+  );
+  return m ? m[1] : null;
 }
