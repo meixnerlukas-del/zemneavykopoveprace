@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { sendEmail, OPERATOR_EMAIL } from "@/lib/email";
 import { rateLimit } from "@/lib/rateLimit";
 
@@ -38,6 +39,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Ulož do DB (districtId = null → všeobecná správa), aby sa nič nestratilo ani bez e-mailu
+  const lead = await prisma.lead.create({
+    data: {
+      districtId: null,
+      name,
+      email,
+      phone: null,
+      message: `[Kontakt: ${topic}] ${message}`,
+      sentOk: false,
+    },
+  });
+
   const res = await sendEmail({
     to: OPERATOR_EMAIL,
     replyTo: email,
@@ -51,6 +64,10 @@ export async function POST(req: NextRequest) {
       <p>${esc(message).replace(/\n/g, "<br>")}</p>
     `,
   });
+
+  if (res.ok) {
+    await prisma.lead.update({ where: { id: lead.id }, data: { sentOk: true } });
+  }
 
   return NextResponse.json({ ok: true, delivered: res.ok });
 }
