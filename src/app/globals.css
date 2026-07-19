@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* ============================================================
+   DIZAJNOVÉ TOKENY — kap. 3 (dodržané presne)
+   ============================================================ */
+@theme {
+  --color-asphalt: #16181a; /* hero, header, footer, tmavé pásy */
+  --color-asphalt-2: #2e3134; /* oddeľovače na tmavom */
+  --color-concrete: #e8e6e1; /* sekcia mapy, svetlé pozadie */
+  --color-concrete-2: #f4f3f0; /* striedavé svetlé sekcie */
+  --color-paper: #ffffff; /* karty, obsah profilu */
+  --color-jcb: #f2b01e; /* LEN akcie, aktívne stavy, obsadené okresy */
+  --color-jcb-ink: #412402; /* text na žltej */
+  --color-muted: #7a7c7e; /* sekundárny text */
+
+  /* Fonty (premenné dodá next/font v layout.tsx) */
+  --font-heading: var(--font-oswald), "Oswald", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+
+  /* Ostré hrany všade */
+  --radius: 0px;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-asphalt);
+  font-family: var(--font-sans);
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  font-weight: 600;
+}
+
+/* border-radius: 0 všade (ostré hrany podľa kap. 3) */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Viditeľný focus stav pre klávesnicu (WCAG AA) */
+:focus-visible {
+  outline: 3px solid var(--color-jcb);
+  outline-offset: 2px;
+}
+
+/* Rešpektuj prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+/* Nadpis sekcie: veľké písmená + spodná linka 2px */
+.section-title {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--color-asphalt);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  display: inline-block;
+}
+
+/* Karta služby: biele pozadie + ľavý žltý pruh */
+.service-card {
+  background: var(--color-paper);
+  border-left: 3px solid var(--color-jcb);
+}

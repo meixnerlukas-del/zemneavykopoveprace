@@ -1,0 +1,176 @@
+// Zemné a výkopové práce — Prisma schema
+// Lokálne SQLite, produkcia PostgreSQL (zmeň provider + DATABASE_URL).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model District {
+  id       String    @id @default(cuid())
+  name     String // "Nitra"
+  slug     String    @unique // "nitra"
+  code     String    @unique // oficiálny kód okresu ŠÚSR, napr. "403"
+  region   String // "Nitriansky kraj"
+  lat      Float? // centroid okresu pre pin na mape
+  lng      Float?
+  profile  Profile?
+}
+
+model Partner {
+  id          String    @id @default(cuid())
+  companyName String
+  ico         String
+  dic         String?
+  icDph       String?
+  billingAddr String
+  contactName String?
+  phone       String
+  email       String // sem chodia dopyty aj faktúry
+  note        String?
+  profiles    Profile[] // jeden Partner môže mať viac okresov
+  createdAt   DateTime  @default(now())
+}
+
+model Profile {
+  id             String        @id @default(cuid())
+  districtId     String        @unique
+  district       District      @relation(fields: [districtId], references: [id])
+  partnerId      String?
+  partner        Partner?      @relation(fields: [partnerId], references: [id])
+
+  status         ProfileStatus @default(FREE)
+  paidAt         DateTime?
+  expiresAt      DateTime?
+  freeUpdateUsed Boolean       @default(false) // 1 bezplatná aktualizácia ročne
+
+  // Kontakt
+  displayName    String? // "Bager NR s.r.o."
+  logoUrl        String?
+  phone          String?
+  email          String? // cieľ kontaktného formulára
+  facebookUrl    String?
+  youtubeUrl     String?
+  websiteUrl     String?
+  addressLine    String?
+  lat            Float?
+  lng            Float?
+
+  // O nás
+  heroImageUrl   String?
+  tagline        String? // "Výkopy · doprava kameniva · búranie"
+  aboutText      String?
+  services       Service[]
+  machines       Machine[]
+  gallery        GalleryItem[]
+  videos         VideoItem[]
+  reviews        Review[]
+
+  metaTitle       String?
+  metaDescription String?
+  updatedAt       DateTime      @updatedAt
+}
+
+enum ProfileStatus {
+  FREE
+  PENDING_PAYMENT
+  PENDING_CONTENT
+  PUBLISHED
+  EXPIRED
+  SUSPENDED
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  profileId   String
+  title       String
+  description String?
+  order       Int     @default(0)
+  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Machine {
+  id          String  @id @default(cuid())
+  profileId   String
+  name        String
+  description String?
+  imageUrl    String?
+  order       Int     @default(0)
+  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model GalleryItem {
+  id        String  @id @default(cuid())
+  profileId String
+  imageUrl  String
+  caption   String?
+  order     Int     @default(0)
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model VideoItem {
+  id        String  @id @default(cuid())
+  profileId String
+  url       String
+  title     String?
+  order     Int     @default(0)
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String    @id @default(cuid())
+  profileId String
+  author    String
+  text      String
+  rating    Int?
+  date      DateTime?
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Lead {
+  id         String   @id @default(cuid())
+  districtId String?
+  name       String
+  email      String
+  phone      String?
+  message    String
+  createdAt  DateTime @default(now())
+  sentOk     Boolean  @default(false)
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  contactName   String?
+  companyName   String
+  ico           String
+  dic           String?
+  icDph         String?
+  billingAddr   String
+  phone         String
+  email         String
+  districts     String // čiarkou oddelené slugy/kódy objednaných okresov
+  note          String?
+  termsAccepted Boolean
+  createdAt     DateTime @default(now())
+  handled       Boolean  @default(false)
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  role         String @default("admin")
+}
+
+// Globálne texty stránok (homepage, /spolupraca, obchodné podmienky, GDPR) – editovateľné v admine
+model PageContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // "home", "spolupraca", "obchodne-podmienky", "gdpr"
+  title     String?
+  body      String // HTML z Tiptap
+  updatedAt DateTime @updatedAt
+}
