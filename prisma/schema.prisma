@@ -7,7 +7,9 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  // Priame (unpooled) Neon pripojenie — spoľahlivé s Prisma (bez PgBouncer).
+  // Vercel integrácia poskytuje DATABASE_URL_UNPOOLED; lokálne v .env.
+  url       = env("DATABASE_URL_UNPOOLED")
 }
 
 model District {
