@@ -46,3 +46,7 @@ next-env.d.ts
 /public/uploads/*
 !/public/uploads/.gitkeep
 
+# súkromné prístupy — NIKDY necommitovať
+PRISTUPY-SUKROMNE.md
+NAHRAJ-NA-GITHUB.bat
+
