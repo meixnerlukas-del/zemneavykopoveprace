@@ -6,9 +6,11 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
-      // Placeholder fotky pre ukážkové profily (dev/demo). Reálne fotky pôjdu do /public/uploads.
+      // Placeholder fotky pre ukážkové profily (dev/demo).
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "fastly.picsum.photos" },
+      // Reálne nahraté fotky — Vercel Blob (trvalé úložisko).
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
   },
 

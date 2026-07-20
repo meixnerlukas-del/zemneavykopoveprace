@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { put } from "@vercel/blob";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   const buf = Buffer.from(await file.arrayBuffer());
-  // Kompresia + orezanie na max 1600px, výstup JPEG
+  // Kompresia + orezanie na max 1600px, výstup JPEG (SEO-friendly, malá veľkosť)
   const out = await sharp(buf)
     .rotate()
     .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
@@ -44,9 +45,17 @@ export async function POST(req: NextRequest) {
   const suffix = Math.random().toString(36).slice(2, 8);
   const fileName = `${base}-${suffix}.jpg`;
 
+  // Produkcia: Vercel Blob (trvalé úložisko). Lokálne bez tokenu: /public/uploads.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`uploads/${fileName}`, out, {
+      access: "public",
+      contentType: "image/jpeg",
+    });
+    return NextResponse.json({ ok: true, url: blob.url });
+  }
+
   const dir = path.join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, fileName), out);
-
   return NextResponse.json({ ok: true, url: `/uploads/${fileName}` });
 }
