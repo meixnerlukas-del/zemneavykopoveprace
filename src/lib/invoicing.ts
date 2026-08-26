@@ -45,10 +45,28 @@ function digits(s: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+// Účto+ vyžaduje na príjemcovi samostatné pole `city` (inak HTTP 400
+// "city: The city field is required."). Objednávka má adresu ako jeden reťazec,
+// tak ju rozparsujeme na ulicu / PSČ / mesto s bezpečnými fallbackmi.
+export function parseAddress(billingAddr: string): { street: string; city: string; zip: string | null } {
+  const raw = (billingAddr ?? "").trim();
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const street = parts[0] || raw || "-";
+  const rest = (parts.length > 1 ? parts.slice(1).join(", ") : raw).trim();
+  const zipMatch = rest.match(/\d{3}\s?\d{2}/);
+  const zip = zipMatch ? zipMatch[0] : null;
+  let city = (zip ? rest.replace(zip, "") : rest).replace(/\s{2,}/g, " ").replace(/^[,\s]+|[,\s]+$/g, "").trim();
+  if (!city) city = rest || street || "-"; // Účto+ vyžaduje neprázdne mesto
+  return { street, city, zip };
+}
+
 function buildReceiver(order: OrderRow): InvoiceReceiver {
+  const addr = parseAddress(order.billingAddr);
   return {
     name: order.companyName,
-    street: order.billingAddr,
+    street: addr.street,
+    city: addr.city,
+    zip: addr.zip,
     country: "SVK",
     sk_ico: digits(order.ico),
     sk_dic: order.dic ? digits(order.dic) : null,
