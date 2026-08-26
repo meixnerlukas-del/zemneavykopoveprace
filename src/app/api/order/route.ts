@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, OPERATOR_EMAIL } from "@/lib/email";
 import { rateLimit } from "@/lib/rateLimit";
 import { computeOrderTotal, formatEur } from "@/lib/pricing";
+import { createProformaForOrder, OPERATOR_IBAN, PAYMENT_DUE_DAYS } from "@/lib/invoicing";
 
 export async function POST(req: NextRequest) {
   const ip =
@@ -102,6 +103,19 @@ export async function POST(req: NextRequest) {
     data: { status: "PENDING_PAYMENT" },
   });
 
+  // Automatická predfaktúra (Účto+). Nesmie zhodiť objednávku, keď Účto+ zlyhá.
+  let invoiceNumber = "";
+  let variableSymbol = "";
+  try {
+    const inv = await createProformaForOrder(order.id);
+    invoiceNumber = inv?.invoiceNumber ?? "";
+    variableSymbol = inv?.variableSymbol ?? "";
+  } catch (e) {
+    console.error("[order] predfaktúra zlyhala:", e);
+  }
+
+  const dueDate = new Date(Date.now() + PAYMENT_DUE_DAYS * 86400000).toLocaleDateString("sk-SK");
+
   // E-mail operátorovi
   await sendEmail({
     to: OPERATOR_EMAIL,
@@ -114,31 +128,40 @@ export async function POST(req: NextRequest) {
       <p><strong>Fakturačná adresa:</strong> ${esc(billingAddr)}</p>
       <p><strong>Okresy:</strong> ${esc(districtNames)}</p>
       <p><strong>Cena spolu:</strong> ${formatEur(total)} s DPH / rok</p>
+      <p><strong>Predfaktúra:</strong> ${invoiceNumber ? esc(invoiceNumber) : "nevystavená (skontroluj Účto+)"}</p>
       ${note ? `<p><strong>Poznámka:</strong> ${esc(note)}</p>` : ""}
       <p>ID objednávky: ${order.id}</p>
     `,
   });
 
-  // Potvrdenie objednávateľovi
+  // Výzva na úhradu objednávateľovi (predfaktúra)
   await sendEmail({
     to: email,
-    subject: "Potvrdenie objednávky — zemneavykopoveprace.sk",
+    subject: `Predfaktúra k objednávke${invoiceNumber ? " č. " + invoiceNumber : ""} — zemneavykopoveprace.sk`,
     html: `
       <h2>Ďakujeme za objednávku</h2>
       <p>Prijali sme vašu objednávku okresov: <strong>${esc(districtNames)}</strong>.</p>
-      <p>Cena spolu: <strong>${formatEur(total)} s DPH / rok</strong>.</p>
+      <h3>Platobné údaje</h3>
+      <table cellpadding="4" style="border-collapse:collapse">
+        <tr><td><strong>Suma na úhradu</strong></td><td>${formatEur(total)} s DPH / rok</td></tr>
+        <tr><td><strong>IBAN</strong></td><td>${OPERATOR_IBAN}</td></tr>
+        <tr><td><strong>Variabilný symbol</strong></td><td>${variableSymbol ? esc(variableSymbol) : "uvedieme na predfaktúre"}</td></tr>
+        ${invoiceNumber ? `<tr><td><strong>Predfaktúra č.</strong></td><td>${esc(invoiceNumber)}</td></tr>` : ""}
+        <tr><td><strong>Splatnosť</strong></td><td>${dueDate}</td></tr>
+      </table>
       <h3>Ďalší postup</h3>
       <ol>
-        <li>Zašleme vám faktúru a požiadavku na podklady (logo, fotky, popis služieb, kontakty).</li>
-        <li>Po prijatí platby a podkladov zverejníme váš profil do 5 pracovných dní.</li>
+        <li>Uhraďte sumu podľa údajov vyššie (variabilný symbol uveďte pri platbe).</li>
+        <li>Po prijatí platby vám vystavíme ostrú faktúru a sprístupníme doplnenie profilu.</li>
+        <li>Po doplnení podkladov (logo, fotky, popis služieb, kontakty) profil zverejníme.</li>
       </ol>
       <p>Objednávku môžete bezplatne stornovať do 3 kalendárnych dní e-mailom na
       <a href="mailto:${OPERATOR_EMAIL}">${OPERATOR_EMAIL}</a>.</p>
-      <p>Metraco s.r.o. · Dolné Obdokovce 64, 951 02 · IČO 50 010 221</p>
+      <p>Metraco s.r.o. · Dolné Obdokovce 64, 951 02 · IČO 50 010 221 · IČ DPH SK2120143707</p>
     `,
   });
 
-  return NextResponse.json({ ok: true, total, districts: districtNames });
+  return NextResponse.json({ ok: true, total, districts: districtNames, invoiceNumber });
 }
 
 function esc(str: string): string {

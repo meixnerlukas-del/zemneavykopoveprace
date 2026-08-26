@@ -12,11 +12,23 @@ export const metadata: Metadata = {
 };
 
 export default async function OrderPage() {
-  const free = await prisma.district.findMany({
-    where: { profile: { status: "FREE" } },
+  const districts = await prisma.district.findMany({
     orderBy: { code: "asc" },
-    select: { slug: true, name: true, region: true },
+    select: {
+      slug: true,
+      name: true,
+      region: true,
+      profile: { select: { status: true } },
+    },
   });
+
+  const items = districts.map((d) => ({
+    slug: d.slug,
+    name: d.name,
+    region: d.region,
+    occupied: !!d.profile && d.profile.status !== "FREE",
+  }));
+  const freeCount = items.filter((i) => !i.occupied).length;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
@@ -24,16 +36,16 @@ export default async function OrderPage() {
       <p className="mt-4 text-muted">
         Vyberte voľné okresy, vyplňte fakturačné údaje a odošlite objednávku. Cena
         prvého okresu je 196,80 € s DPH/rok, každý ďalší so zľavou 25 %. Po odoslaní
-        vám zašleme faktúru a požiadavku na podklady.
+        vám vystavíme predfaktúru s platobnými údajmi.
       </p>
 
-      {free.length === 0 ? (
+      {freeCount === 0 ? (
         <p className="mt-10 border-l-4 border-jcb bg-concrete-2 p-4">
           Momentálne nie sú voľné žiadne okresy.
         </p>
       ) : (
         <div className="mt-10">
-          <OrderForm freeDistricts={free} regions={REGIONS} />
+          <OrderForm districts={items} regions={REGIONS} />
         </div>
       )}
     </div>

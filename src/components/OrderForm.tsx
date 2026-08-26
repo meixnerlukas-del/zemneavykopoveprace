@@ -4,17 +4,17 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { computeOrderTotal, formatEur, PRICE_PER_DISTRICT, additionalDistrictPrice } from "@/lib/pricing";
 
-type FreeDistrict = { slug: string; name: string; region: string };
-type Props = { freeDistricts: FreeDistrict[]; regions: readonly string[] };
+type DistrictItem = { slug: string; name: string; region: string; occupied: boolean };
+type Props = { districts: DistrictItem[]; regions: readonly string[] };
 
-export default function OrderForm({ freeDistricts, regions }: Props) {
+export default function OrderForm({ districts, regions }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [state, setState] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
   const selectedList = useMemo(
-    () => freeDistricts.filter((d) => selected.has(d.slug)),
-    [freeDistricts, selected],
+    () => districts.filter((d) => selected.has(d.slug)),
+    [districts, selected],
   );
   const total = computeOrderTotal(selected.size);
 
@@ -26,6 +26,8 @@ export default function OrderForm({ freeDistricts, regions }: Props) {
       return next;
     });
   }
+
+  const occupiedCount = districts.filter((d) => d.occupied).length;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -135,11 +137,16 @@ export default function OrderForm({ freeDistricts, regions }: Props) {
       {/* Výber okresu */}
       <fieldset className="border border-concrete p-4">
         <legend className="px-2 text-sm uppercase tracking-[0.05em] text-muted">
-          Vyberte okres/y * (zobrazené sú len voľné okresy)
+          Vyberte okres/y *
         </legend>
+        {occupiedCount > 0 && (
+          <p className="mb-2 text-xs text-muted">
+            Okresy označené <span className="text-jcb">obsadené</span> už majú zhotoviteľa a nedajú sa objednať.
+          </p>
+        )}
         <div className="mt-2 grid gap-x-6 gap-y-6 md:grid-cols-2">
           {regions.map((region) => {
-            const inRegion = freeDistricts.filter((d) => d.region === region);
+            const inRegion = districts.filter((d) => d.region === region);
             if (inRegion.length === 0) return null;
             return (
               <div key={region}>
@@ -147,13 +154,19 @@ export default function OrderForm({ freeDistricts, regions }: Props) {
                 <ul className="space-y-1">
                   {inRegion.map((d) => (
                     <li key={d.slug}>
-                      <label className="flex items-center gap-2">
+                      <label
+                        className={`flex items-center gap-2 ${d.occupied ? "cursor-not-allowed text-muted" : ""}`}
+                      >
                         <input
                           type="checkbox"
                           checked={selected.has(d.slug)}
+                          disabled={d.occupied}
                           onChange={() => toggle(d.slug)}
                         />
-                        <span>{d.name}</span>
+                        <span className={d.occupied ? "line-through" : ""}>{d.name}</span>
+                        {d.occupied && (
+                          <span className="text-xs uppercase tracking-[0.05em] text-jcb">obsadené</span>
+                        )}
                       </label>
                     </li>
                   ))}

@@ -94,14 +94,16 @@ Ak Účto+ zlyhá, akcia to zobrazí adminovi (nezmení stavy nezvratne skôr, n
 
 ---
 
-## 5. Obsadenosť — všade
+## 5. Obsadenosť — objednávkový formulár + zoznam `/okresy`
 
 Pomocná funkcia `isOccupied(profileStatus)` = `status !== "FREE"`. „Voľné" = FREE; „Obsadené" = čokoľvek iné (PENDING_PAYMENT, PENDING_CONTENT, PUBLISHED, EXPIRED*, SUSPENDED). (*EXPIRED sa môže riešiť ako voľné neskôr — mimo rozsahu.)
 
-- **Mapa (`DistrictMap`)**: piny obsadených okresov vizuálne odlíšené (žltá `--jcb` / iný marker + tooltip „Obsadené"), voľné neutrálne. Klik na obsadený → profil (ktorý ukáže „obsadené, pripravuje sa" alebo publikovaný profil).
+Značíme len na dvoch miestach (rozhodnutie 2026-08-25):
+
 - **Zoznam `/okresy`**: štítok **„Obsadené"** (jcb) vs **„Voľné"** pri každom okrese.
 - **Objednávkový formulár (`OrderForm`)**: obsadené okresy sa **nedajú vybrať** (disabled + vizuálne označené). Backend `/api/order` už neFREE okresy odmieta (ostáva ako poistka).
-- **Profil obsadeného, nezverejneného okresu** (PENDING_PAYMENT/PENDING_CONTENT): namiesto predajného CTA ukáž neutrálne „Tento okres je už obsadený, profil sa pripravuje."
+
+**Mimo rozsahu:** mapa (`DistrictMap`) ostáva neutrálna — obsadenosť sa na pinoch neodlišuje. Profil obsadeného okresu ostáva ako je (rieši sa v Celku B).
 
 ---
 

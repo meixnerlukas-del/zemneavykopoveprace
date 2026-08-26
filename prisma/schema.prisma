@@ -159,6 +159,32 @@ model Order {
   termsAccepted Boolean
   createdAt     DateTime @default(now())
   handled       Boolean  @default(false)
+  paidAt        DateTime?
+  invoices      Invoice[]
+}
+
+// Faktúry k objednávke. Predfaktúra (proforma) sa vystaví hneď po objednávke,
+// ostrá (final) po označení platby ako prijatej. Obe cez Účto+ (viď lib/uctoplus.ts).
+model Invoice {
+  id                String   @id @default(cuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id])
+  type              String // "proforma" | "final"
+  status            String   @default("pending") // pending | issued | paid | failed
+  invoiceNumber     String   @unique // naše číslo, napr. "PF20260001" / "20260001"
+  variableSymbol    String // číslice z invoiceNumber
+  amountWithoutVat  Decimal
+  amountWithVat     Decimal
+  vatRate           Int      @default(20)
+  currency          String   @default("EUR")
+  uctoplusInvoiceId String? // id dokladu z Účto+ (uuid)
+  uctoplusNumber    String? // číslo dokladu vrátené Účto+
+  relatedProformaId String? // pri type=final → odkaz na Invoice predfaktúry
+  pdfUrl            String? // ak Účto+ poskytne PDF/odkaz
+  lastError         String? // posledná chyba Účto+ (pre admin retry)
+  issuedAt          DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
 }
 
 model User {

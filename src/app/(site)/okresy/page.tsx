@@ -18,9 +18,8 @@ export default async function OkresyPage() {
     include: { profile: { select: { status: true, displayName: true } } },
   });
 
-  const occupied = districts.filter(
-    (d) => d.profile?.status === "PUBLISHED",
-  ).length;
+  const isOccupied = (status?: string) => !!status && status !== "FREE";
+  const occupied = districts.filter((d) => isOccupied(d.profile?.status)).length;
   const free = districts.length - occupied;
 
   return (
@@ -50,6 +49,7 @@ export default async function OkresyPage() {
               <h2 className="section-title text-xl">{region}</h2>
               <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
                 {inRegion.map((d) => {
+                  const occ = isOccupied(d.profile?.status);
                   const published = d.profile?.status === "PUBLISHED";
                   return (
                     <li key={d.id}>
@@ -58,17 +58,19 @@ export default async function OkresyPage() {
                         className="group flex items-center gap-2 py-1"
                       >
                         <span
-                          className={`inline-block h-2.5 w-2.5 ${
-                            published ? "bg-jcb" : "bg-muted"
-                          }`}
+                          className={`inline-block h-2.5 w-2.5 ${occ ? "bg-jcb" : "bg-muted"}`}
                           aria-hidden
                         />
                         <span className="group-hover:text-jcb">{d.name}</span>
-                        {published && d.profile?.displayName && (
+                        {published && d.profile?.displayName ? (
                           <span className="truncate text-xs text-muted">
                             · {d.profile.displayName}
                           </span>
-                        )}
+                        ) : occ ? (
+                          <span className="text-xs uppercase tracking-[0.05em] text-jcb">
+                            obsadené
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );
