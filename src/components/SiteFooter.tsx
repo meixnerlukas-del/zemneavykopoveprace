@@ -69,6 +69,11 @@ export default function SiteFooter() {
                 Kontakt
               </Link>
             </li>
+            <li>
+              <Link href="/partner" className="hover:text-jcb">
+                Partnerská zóna (prihlásenie)
+              </Link>
+            </li>
           </ul>
         </div>
 
