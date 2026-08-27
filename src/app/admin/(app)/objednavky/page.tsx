@@ -3,7 +3,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { sendEmail, OPERATOR_EMAIL } from "@/lib/email";
 import { markOrderPaidAndInvoice, retryInvoiceIssue } from "@/lib/invoicing";
+import { provisionPartnerForOrder } from "@/lib/partnerProvisioning";
 import { formatEur } from "@/lib/pricing";
+
+const SITE_URL = process.env.NEXTAUTH_URL ?? "https://www.zemneavykopoveprace.sk";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +28,27 @@ async function markPaid(orderId: string) {
         include: { invoices: true },
       });
       const final = order?.invoices.find((i) => i.type === "final");
+
+      // Sprístupni partnerovi self-service (vytvor/napoj partnera + magic-link).
+      let loginUrl = "";
+      try {
+        const prov = await provisionPartnerForOrder(orderId);
+        if (prov) loginUrl = `${SITE_URL}/api/partner/verify?token=${prov.magicToken}`;
+      } catch (e) {
+        console.error("[admin] provisioning partnera:", e);
+      }
+
       if (order) {
         await sendEmail({
           to: order.email,
-          subject: `Potvrdenie platby a faktúra${final?.invoiceNumber ? " č. " + final.invoiceNumber : ""} — zemneavykopoveprace.sk`,
+          subject: `Platba prijatá — sprístupnenie profilu${final?.invoiceNumber ? " · faktúra č. " + final.invoiceNumber : ""} — zemneavykopoveprace.sk`,
           html: `
             <h2>Platba prijatá — ďakujeme</h2>
             <p>Zaevidovali sme úhradu vašej objednávky okresov: <strong>${order.districts}</strong>.</p>
             ${final?.invoiceNumber ? `<p>Vystavili sme ostrú faktúru č. <strong>${final.invoiceNumber}</strong> na sumu ${formatEur(Number(final.amountWithVat))} s DPH.</p>` : ""}
-            <p>Čoskoro vám sprístupníme doplnenie profilu (logo, fotky, popis služieb, kontakty). Po doplnení podkladov profil zverejníme.</p>
+            <h3>Doplňte si profil sami</h3>
+            <p>Sprístupnili sme vám vlastné rozhranie, kde si doplníte logo, fotky, popis služieb, vozový park a kontakty, a profil zverejníte.</p>
+            ${loginUrl ? `<p><a href="${loginUrl}" style="display:inline-block;background:#F2B01E;color:#412402;padding:12px 24px;text-decoration:none;font-weight:600">Prihlásiť sa a doplniť profil</a></p><p style="font-size:12px;color:#7A7C7E">Odkaz je platný 30 minút. Neskôr sa prihlásite na ${SITE_URL}/partner (odkaz vám pošleme na e-mail).</p>` : `<p>Prihlásiť sa môžete na <a href="${SITE_URL}/partner">${SITE_URL}/partner</a> (odkaz vám pošleme na tento e-mail).</p>`}
             <p>Metraco s.r.o. · Dolné Obdokovce 64, 951 02 · IČO 50 010 221 · IČ DPH SK2120143707</p>
           `,
         });

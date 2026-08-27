@@ -7,9 +7,10 @@ type Props = {
   seo: string;
   defaultValue?: string | null;
   label?: string;
+  endpoint?: string;
 };
 
-export default function UploadInput({ name, seo, defaultValue, label }: Props) {
+export default function UploadInput({ name, seo, defaultValue, label, endpoint = "/api/admin/upload" }: Props) {
   const [url, setUrl] = useState(defaultValue ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function UploadInput({ name, seo, defaultValue, label }: Props) {
     fd.append("file", file);
     fd.append("seo", seo);
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res = await fetch(endpoint, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         setError(data.error ?? "Nahrávanie zlyhalo");

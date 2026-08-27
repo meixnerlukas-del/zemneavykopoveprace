@@ -33,9 +33,33 @@ model Partner {
   contactName String?
   phone       String
   email       String // sem chodia dopyty aj faktúry
+  loginEmail  String?   @unique // e-mail na partnerské prihlásenie (magic-link)
   note        String?
   profiles    Profile[] // jeden Partner môže mať viac okresov
+  loginTokens PartnerLoginToken[]
+  sessions    PartnerSession[]
   createdAt   DateTime  @default(now())
+}
+
+// Jednorazový magic-link token na prihlásenie partnera (ukladá sa hashovaný).
+model PartnerLoginToken {
+  id        String    @id @default(cuid())
+  partnerId String
+  partner   Partner   @relation(fields: [partnerId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Partnerská session (hash tokenu z httpOnly cookie).
+model PartnerSession {
+  id        String   @id @default(cuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Profile {
