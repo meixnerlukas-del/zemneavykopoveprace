@@ -28,6 +28,7 @@ async function markPaid(orderId: string) {
         include: { invoices: true },
       });
       const final = order?.invoices.find((i) => i.type === "final");
+      const finalNum = final?.uctoplusNumber ?? final?.invoiceNumber ?? null;
 
       // Sprístupni partnerovi self-service (vytvor/napoj partnera + magic-link).
       let loginUrl = "";
@@ -41,11 +42,11 @@ async function markPaid(orderId: string) {
       if (order) {
         await sendEmail({
           to: order.email,
-          subject: `Platba prijatá — sprístupnenie profilu${final?.invoiceNumber ? " · faktúra č. " + final.invoiceNumber : ""} — zemneavykopoveprace.sk`,
+          subject: `Platba prijatá — sprístupnenie profilu${finalNum ? " · faktúra č. " + finalNum : ""} — zemneavykopoveprace.sk`,
           html: `
             <h2>Platba prijatá — ďakujeme</h2>
             <p>Zaevidovali sme úhradu vašej objednávky okresov: <strong>${order.districts}</strong>.</p>
-            ${final?.invoiceNumber ? `<p>Vystavili sme ostrú faktúru č. <strong>${final.invoiceNumber}</strong> na sumu ${formatEur(Number(final.amountWithVat))} s DPH.</p>` : ""}
+            ${finalNum ? `<p>Vystavili sme ostrú faktúru č. <strong>${finalNum}</strong> na sumu ${formatEur(Number(final!.amountWithVat))} s DPH.</p>` : ""}
             <h3>Doplňte si profil sami</h3>
             <p>Sprístupnili sme vám vlastné rozhranie, kde si doplníte logo, fotky, popis služieb, vozový park a kontakty, a profil zverejníte.</p>
             ${loginUrl ? `<p><a href="${loginUrl}" style="display:inline-block;background:#F2B01E;color:#412402;padding:12px 24px;text-decoration:none;font-weight:600">Prihlásiť sa a doplniť profil</a></p><p style="font-size:12px;color:#7A7C7E">Odkaz je platný 30 minút. Neskôr sa prihlásite na ${SITE_URL}/partner (odkaz vám pošleme na e-mail).</p>` : `<p>Prihlásiť sa môžete na <a href="${SITE_URL}/partner">${SITE_URL}/partner</a> (odkaz vám pošleme na tento e-mail).</p>`}
@@ -121,7 +122,7 @@ export default async function OrdersPage() {
                       <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-1">
                         <span>
                           {inv.type === "proforma" ? "Predfaktúra" : "Ostrá faktúra"}{" "}
-                          <strong>{inv.invoiceNumber}</strong> · {formatEur(Number(inv.amountWithVat))} s DPH ·{" "}
+                          <strong>{inv.uctoplusNumber ?? inv.invoiceNumber}</strong> · {formatEur(Number(inv.amountWithVat))} s DPH ·{" "}
                           <span className={inv.status === "failed" ? "text-red-700" : "text-muted"}>
                             {STATUS_LABEL[inv.status] ?? inv.status}
                           </span>

@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
   let variableSymbol = "";
   try {
     const inv = await createProformaForOrder(order.id);
-    invoiceNumber = inv?.invoiceNumber ?? "";
+    // Uprednostni číslo pridelené Účto+ (z poradovníka); fallback naše interné číslo.
+    invoiceNumber = inv?.uctoplusNumber ?? inv?.invoiceNumber ?? "";
     variableSymbol = inv?.variableSymbol ?? "";
   } catch (e) {
     console.error("[order] predfaktúra zlyhala:", e);

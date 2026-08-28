@@ -29,6 +29,53 @@ export const ISSUER: InvoiceIssuer = {
 export const OPERATOR_IBAN = "SK4602000000004565568056";
 export const PAYMENT_DUE_DAYS = 14;
 
+// Poradovníky (číselné rady) v Účto+ — číslo prideľuje Účto+ z tohto radu.
+// Nastav vo Verceli: UCTOPLUS_PROFORMA_COUNTER_ID a UCTOPLUS_INVOICE_COUNTER_ID.
+// Kým nie sú nastavené, fallback: appka pošle vlastné číslo (ako doteraz).
+const PROFORMA_COUNTER_ID = process.env.UCTOPLUS_PROFORMA_COUNTER_ID
+  ? Number(process.env.UCTOPLUS_PROFORMA_COUNTER_ID)
+  : null;
+const INVOICE_COUNTER_ID = process.env.UCTOPLUS_INVOICE_COUNTER_ID
+  ? Number(process.env.UCTOPLUS_INVOICE_COUNTER_ID)
+  : null;
+
+export const CONFIGURED_COUNTERS = {
+  proforma: PROFORMA_COUNTER_ID,
+  invoice: INVOICE_COUNTER_ID,
+};
+
+// Výpis poradovníkov z Účto+ (pre admin, aby si používateľ vybral id číselného radu).
+export async function listAllCounters() {
+  if (!uctoplusEnabled()) {
+    return { enabled: false, proforma: [], invoice: [], configured: CONFIGURED_COUNTERS };
+  }
+  const c = new UctoPlusClient();
+  const [proforma, invoice] = await Promise.all([
+    c.getCounters("PROFORMA_INVOICE").catch((e) => {
+      console.error("[uctoplus] counters PROFORMA:", e);
+      return [] as Awaited<ReturnType<typeof c.getCounters>>;
+    }),
+    c.getCounters("INVOICE").catch((e) => {
+      console.error("[uctoplus] counters INVOICE:", e);
+      return [] as Awaited<ReturnType<typeof c.getCounters>>;
+    }),
+  ]);
+  return { enabled: true, proforma, invoice, configured: CONFIGURED_COUNTERS };
+}
+
+// Z odpovede Účto+ zloží update dáta (uloží pridelené číslo z poradovníka + VS).
+function issuedData(created: { id: string; invoiceNumber: string; variableSymbol?: string }, markPaid = false) {
+  const vs = created.variableSymbol || (created.invoiceNumber ? created.invoiceNumber.replace(/\D/g, "") : "");
+  return {
+    status: markPaid ? "paid" : "issued",
+    uctoplusInvoiceId: created.id,
+    uctoplusNumber: created.invoiceNumber || null,
+    ...(vs ? { variableSymbol: vs } : {}),
+    issuedAt: new Date(),
+    ...(markPaid ? { paidAt: new Date() } : {}),
+  };
+}
+
 type OrderRow = {
   id: string;
   companyName: string;
@@ -142,7 +189,8 @@ export async function createProformaForOrder(orderId: string) {
   try {
     const created = await new UctoPlusClient().createInvoice({
       kind: "proforma",
-      invoiceNumber: num.invoiceNumber,
+      counterId: PROFORMA_COUNTER_ID,
+      invoiceNumber: num.invoiceNumber, // fallback, keď poradovník nie je nastavený
       variableSymbol: num.variableSymbol,
       issuer: ISSUER,
       receiver: buildReceiver(order),
@@ -151,12 +199,7 @@ export async function createProformaForOrder(orderId: string) {
     });
     return await prisma.invoice.update({
       where: { id: invoice.id },
-      data: {
-        status: "issued",
-        uctoplusInvoiceId: created.id,
-        uctoplusNumber: created.invoiceNumber || null,
-        issuedAt: new Date(),
-      },
+      data: issuedData(created),
     });
   } catch (e) {
     return await prisma.invoice.update({
@@ -182,6 +225,7 @@ export async function retryInvoiceIssue(invoiceId: string) {
   try {
     const created = await new UctoPlusClient().createInvoice({
       kind: isFinal ? "issued" : "proforma",
+      counterId: isFinal ? INVOICE_COUNTER_ID : PROFORMA_COUNTER_ID,
       invoiceNumber: invoice.invoiceNumber,
       variableSymbol: invoice.variableSymbol,
       issuer: ISSUER,
@@ -192,13 +236,7 @@ export async function retryInvoiceIssue(invoiceId: string) {
     });
     return await prisma.invoice.update({
       where: { id: invoiceId },
-      data: {
-        status: isFinal ? "paid" : "issued",
-        uctoplusInvoiceId: created.id,
-        uctoplusNumber: created.invoiceNumber || null,
-        issuedAt: new Date(),
-        ...(isFinal ? { paidAt: new Date() } : {}),
-      },
+      data: issuedData(created, isFinal),
     });
   } catch (e) {
     await prisma.invoice.update({
@@ -255,6 +293,7 @@ export async function markOrderPaidAndInvoice(orderId: string) {
     try {
       const created = await new UctoPlusClient().createInvoice({
         kind: "issued",
+        counterId: INVOICE_COUNTER_ID,
         invoiceNumber: final.invoiceNumber,
         variableSymbol: final.variableSymbol,
         issuer: ISSUER,
@@ -265,13 +304,7 @@ export async function markOrderPaidAndInvoice(orderId: string) {
       });
       final = await prisma.invoice.update({
         where: { id: final.id },
-        data: {
-          status: "paid",
-          uctoplusInvoiceId: created.id,
-          uctoplusNumber: created.invoiceNumber || null,
-          issuedAt: new Date(),
-          paidAt: new Date(),
-        },
+        data: issuedData(created, true),
       });
     } catch (e) {
       await prisma.invoice.update({

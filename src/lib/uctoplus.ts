@@ -64,7 +64,10 @@ export interface InvoiceItem {
 
 export interface CreateInvoiceParams {
   kind: "issued" | "proforma";
-  invoiceNumber: string;
+  // Odkaz na poradovník (číselný rad) v Účto+ — Účto+ pridelí ďalšie číslo v poradí.
+  // Ak nie je zadané, použije sa fallback: vlastné číslo (invoiceNumber string).
+  counterId?: number | null;
+  invoiceNumber?: string; // fallback vlastné číslo (keď counterId nie je nastavené)
   issuer: InvoiceIssuer;
   receiver: InvoiceReceiver;
   items: InvoiceItem[];
@@ -80,6 +83,14 @@ export interface CreateInvoiceParams {
 export interface CreatedInvoice {
   id: string;
   invoiceNumber: string;
+  variableSymbol?: string;
+}
+
+export interface UctoCounter {
+  id: number;
+  name: string;
+  format?: string;
+  invoiceType?: string;
 }
 
 const TYPE_ISSUED = "INVOICE";
@@ -97,9 +108,14 @@ export class UctoPlusClient {
 
   buildBody(p: CreateInvoiceParams) {
     const today = new Date().toISOString().slice(0, 10);
+    const invoiceType = p.kind === "issued" ? TYPE_ISSUED : TYPE_PROFORMA;
+    // Ak je zadaný poradovník (counterId), pošleme invoiceNumber ako OBJEKT { id }
+    // → Účto+ pridelí ďalšie číslo z radu (správne pre účtovanie). Inak fallback string.
+    const invoiceNumber =
+      p.counterId != null ? { id: p.counterId, invoiceType } : p.invoiceNumber;
     return {
-      invoiceType: p.kind === "issued" ? TYPE_ISSUED : TYPE_PROFORMA,
-      invoiceNumber: p.invoiceNumber,
+      invoiceType,
+      invoiceNumber,
       dateIssue: p.dateIssue ?? today,
       dateDue: p.dateDue ?? today,
       dateDelivery: p.dateDelivery ?? p.dateIssue ?? today,
@@ -138,9 +154,41 @@ export class UctoPlusClient {
     if (!id) {
       throw new Error(`Účto+ /invoice/add: odpoveď bez id — ${JSON.stringify(r.json).slice(0, 300)}`);
     }
+    // invoiceNumber môže prísť ako string alebo objekt (pri poradovníku) — vytiahni text.
+    const numRaw = m.invoiceNumber ?? m.invoice_number ?? m.number ?? "";
+    let invoiceNumber = "";
+    if (typeof numRaw === "string") invoiceNumber = numRaw;
+    else if (numRaw && typeof numRaw === "object") {
+      const o = numRaw as Record<string, unknown>;
+      invoiceNumber = String(o.formatted ?? o.number ?? o.name ?? o.format ?? "");
+    }
     return {
       id,
-      invoiceNumber: String(m.invoiceNumber ?? m.invoice_number ?? m.number ?? ""),
+      invoiceNumber,
+      variableSymbol: String(m.variableSymbol ?? m.variable_symbol ?? "") || undefined,
     };
+  }
+
+  // GET /v3/invoice-type/{invoiceType}/counters — poradovníky (číselné rady) pre daný typ.
+  async getCounters(invoiceType: "INVOICE" | "PROFORMA_INVOICE"): Promise<UctoCounter[]> {
+    const r = await this.http(`${this.base}/v3/invoice-type/${invoiceType}/counters`, {
+      method: "GET",
+      headers: this.headers(),
+    });
+    if (r.status >= 300 || (r.json as { success?: boolean })?.success === false) {
+      throw new Error(`Účto+ /counters ${r.status}: ${JSON.stringify(r.json).slice(0, 300)}`);
+    }
+    const j = r.json as Record<string, unknown>;
+    const arr = (j.model ?? j.data ?? j.counters ?? j) as unknown;
+    const list = Array.isArray(arr) ? arr : [];
+    return list.map((c) => {
+      const o = c as Record<string, unknown>;
+      return {
+        id: Number(o.id),
+        name: String(o.name ?? o.format ?? o.id ?? ""),
+        format: o.format != null ? String(o.format) : undefined,
+        invoiceType: o.invoiceType != null ? String(o.invoiceType) : invoiceType,
+      };
+    });
   }
 }
