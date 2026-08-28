@@ -174,8 +174,6 @@ export class UctoPlusClient {
   async getCounters(invoiceType: "INVOICE" | "PROFORMA_INVOICE"): Promise<UctoCounter[]> {
     const url = `${this.base}/v2/dial/invoice-type/${invoiceType}/counters`;
     const r = await this.http(url, { method: "GET", headers: this.headers() });
-    // DIAGNOSTIKA (dočasné): odhalí presný tvar odpovede z Účto+.
-    console.log(`[uctoplus getCounters] ${invoiceType} status=${r.status} json=${JSON.stringify(r.json).slice(0, 900)}`);
     if (r.status >= 300 || (r.json as { success?: boolean })?.success === false) {
       throw new Error(`Účto+ /counters ${r.status}: ${JSON.stringify(r.json).slice(0, 300)}`);
     }
