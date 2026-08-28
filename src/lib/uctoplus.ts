@@ -111,8 +111,9 @@ export class UctoPlusClient {
     const invoiceType = p.kind === "issued" ? TYPE_ISSUED : TYPE_PROFORMA;
     // Ak je zadaný poradovník (counterId), pošleme invoiceNumber ako OBJEKT { id }
     // → Účto+ pridelí ďalšie číslo z radu (správne pre účtovanie). Inak fallback string.
-    const invoiceNumber =
-      p.counterId != null ? { id: p.counterId, invoiceType } : p.invoiceNumber;
+    // Podľa Účto+ (helpdesk + OpenAPI): invoiceNumber je oneOf[string, {id,...}];
+    // pri poradovníku stačí { id }. Inak fallback vlastné číslo (string).
+    const invoiceNumber = p.counterId != null ? { id: p.counterId } : p.invoiceNumber;
     return {
       invoiceType,
       invoiceNumber,
@@ -169,9 +170,9 @@ export class UctoPlusClient {
     };
   }
 
-  // GET /v3/invoice-type/{invoiceType}/counters — poradovníky (číselné rady) pre daný typ.
+  // GET /v2/dial/invoice-type/{invoiceType}/counters — poradovníky pre daný typ (plain array).
   async getCounters(invoiceType: "INVOICE" | "PROFORMA_INVOICE"): Promise<UctoCounter[]> {
-    const r = await this.http(`${this.base}/v3/invoice-type/${invoiceType}/counters`, {
+    const r = await this.http(`${this.base}/v2/dial/invoice-type/${invoiceType}/counters`, {
       method: "GET",
       headers: this.headers(),
     });
