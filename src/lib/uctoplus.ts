@@ -121,7 +121,8 @@ export class UctoPlusClient {
       dateDue: p.dateDue ?? today,
       dateDelivery: p.dateDelivery ?? p.dateIssue ?? today,
       currency: p.currency ?? "EUR",
-      variableSymbol: p.variableSymbol,
+      // V režime poradovníka nevnucujeme vlastný VS — nech ho pridelí Účto+ (rovný číslu).
+      variableSymbol: p.counterId != null ? undefined : p.variableSymbol,
       paymentType: p.paymentType ?? "TRANSFER",
       issuer: p.issuer,
       reciever: p.receiver, // pozn.: Účto+ používa práve tento (pre)pis kľúča (overené)
@@ -151,6 +152,8 @@ export class UctoPlusClient {
       string,
       unknown
     >;
+    // DIAGNOSTIKA (dočasné): aký VS a číslo Účto+ vrátilo pri poradovníku.
+    console.log(`[ucto-vs] respVS=${JSON.stringify(m.variableSymbol ?? m.variable_symbol ?? null)} num=${JSON.stringify(m.invoiceNumber ?? m.number ?? null)}`);
     const id = String(m.id ?? m.invoice_id ?? "");
     if (!id) {
       throw new Error(`Účto+ /invoice/add: odpoveď bez id — ${JSON.stringify(r.json).slice(0, 300)}`);
