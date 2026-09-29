@@ -2,9 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { sendEmail, OPERATOR_EMAIL } from "@/lib/email";
-import { markOrderPaidAndInvoice, retryInvoiceIssue } from "@/lib/invoicing";
+import {
+  markOrderPaidAndInvoice,
+  retryInvoiceIssue,
+  reissueProformaForOrder,
+  OPERATOR_IBAN,
+  PAYMENT_DUE_DAYS,
+} from "@/lib/invoicing";
 import { provisionPartnerForOrder } from "@/lib/partnerProvisioning";
-import { formatEur } from "@/lib/pricing";
+import { formatEur, computeOrderTotal } from "@/lib/pricing";
 
 const SITE_URL = process.env.NEXTAUTH_URL ?? "https://www.zemneavykopoveprace.sk";
 
@@ -14,6 +20,52 @@ async function toggleHandled(id: string, handled: boolean) {
   "use server";
   if (!(await auth())) throw new Error("Neautorizované");
   await prisma.order.update({ where: { id }, data: { handled } });
+  revalidatePath("/admin/objednavky");
+}
+
+// Manuálna úprava ceny (zmena ceny / zľava / zdarma) + znovuvystavenie predfaktúry.
+async function setOrderPrice(orderId: string, formData: FormData) {
+  "use server";
+  if (!(await auth())) throw new Error("Neautorizované");
+  const raw = String(formData.get("price") ?? "").trim().replace(",", ".");
+  const note = String(formData.get("priceNote") ?? "").trim() || null;
+  const override =
+    raw === "" ? null : Number.isFinite(Number(raw)) && Number(raw) >= 0 ? Number(raw) : null;
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { overrideTotalWithVat: override, priceNote: note },
+  });
+
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (order && !order.paidAt) {
+    try {
+      const inv = await reissueProformaForOrder(orderId);
+      if (override === 0) {
+        await sendEmail({
+          to: order.email,
+          subject: "Úprava objednávky — služba zdarma — zemneavykopoveprace.sk",
+          html: `<h2>Úprava objednávky</h2><p>Vašu objednávku okresov <strong>${order.districts}</strong> sme nastavili ako <strong>zdarma</strong>. Predfaktúra sa nevystavuje. Po sprístupnení vám pošleme prihlásenie do profilu.</p><p>Metraco s.r.o.</p>`,
+        });
+      } else if (inv) {
+        const num = inv.uctoplusNumber ?? inv.invoiceNumber;
+        const due = new Date(Date.now() + PAYMENT_DUE_DAYS * 86400000).toLocaleDateString("sk-SK");
+        await sendEmail({
+          to: order.email,
+          subject: `Upravená predfaktúra${num ? " č. " + num : ""} — zemneavykopoveprace.sk`,
+          html: `<h2>Upravená cena objednávky</h2>
+            <p>K objednávke okresov <strong>${order.districts}</strong> sme vystavili upravenú predfaktúru.</p>
+            <table cellpadding="4"><tr><td><strong>Suma na úhradu</strong></td><td>${formatEur(Number(inv.amountWithVat))} s DPH</td></tr>
+            <tr><td><strong>IBAN</strong></td><td>${OPERATOR_IBAN}</td></tr>
+            <tr><td><strong>Variabilný symbol</strong></td><td>${inv.variableSymbol ?? "—"}</td></tr>
+            <tr><td><strong>Splatnosť</strong></td><td>${due}</td></tr></table>
+            <p>Metraco s.r.o. · IČO 50 010 221 · IČ DPH SK2120143707</p>`,
+        });
+      }
+    } catch (e) {
+      console.error("[admin] setOrderPrice:", e);
+    }
+  }
   revalidatePath("/admin/objednavky");
 }
 
@@ -138,6 +190,44 @@ export default async function OrdersPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Cena / zľava / zdarma */}
+                  {!o.paidAt && (
+                    <div className="mt-2 border border-concrete p-3">
+                      <p className="mb-1 text-xs uppercase tracking-[0.06em] text-muted">Cena / zľava / zdarma</p>
+                      <p className="text-xs text-muted">
+                        Štandardná cena: {formatEur(computeOrderTotal(o.districts.split(",").filter(Boolean).length))} s DPH.
+                        {o.overrideTotalWithVat != null && (
+                          <> Nastavené:{" "}
+                            <strong>
+                              {Number(o.overrideTotalWithVat) === 0
+                                ? "ZDARMA"
+                                : formatEur(Number(o.overrideTotalWithVat)) + " s DPH"}
+                            </strong>
+                            {o.priceNote ? ` (${o.priceNote})` : ""}.
+                          </>
+                        )}
+                      </p>
+                      <form action={setOrderPrice.bind(null, o.id)} className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-end">
+                        <label className="text-xs">
+                          <span className="block text-muted">Konečná cena s DPH (0 = zdarma, prázdne = štandard)</span>
+                          <input
+                            name="price"
+                            defaultValue={o.overrideTotalWithVat != null ? String(Number(o.overrideTotalWithVat)) : ""}
+                            placeholder="napr. 150 alebo 0"
+                            className="mt-1 w-40 border border-concrete px-2 py-1"
+                          />
+                        </label>
+                        <label className="text-xs">
+                          <span className="block text-muted">Poznámka (dôvod)</span>
+                          <input name="priceNote" defaultValue={o.priceNote ?? ""} className="mt-1 w-full border border-concrete px-2 py-1" />
+                        </label>
+                        <button className="border border-asphalt px-3 py-2 text-xs uppercase hover:bg-asphalt hover:text-paper">
+                          Uložiť a znovu vystaviť
+                        </button>
+                      </form>
+                    </div>
+                  )}
 
                   {/* Akcie */}
                   <div className="mt-2 flex flex-wrap gap-2">

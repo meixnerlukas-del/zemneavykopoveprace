@@ -5,6 +5,7 @@
 // Bez UCTOPLUS_API_KEY sa doklad v Účto+ nevystaví (Invoice ostane "pending"),
 // ale záznamy aj stavy sa vytvoria — tok funguje aj pred dodaním kľúča.
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { computeOrderAmounts, districtNetPrice, VAT_RATE } from "@/lib/pricing";
 import {
@@ -85,7 +86,38 @@ type OrderRow = {
   billingAddr: string;
   districts: string;
   paidAt: Date | null;
+  overrideTotalWithVat: Prisma.Decimal | null;
 };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// Sumy objednávky: buď manuálny override (zdarma/zľava/vlastná cena), alebo štandardný cenník.
+function resolveAmounts(order: OrderRow, count: number) {
+  if (order.overrideTotalWithVat != null) {
+    const gross = Number(order.overrideTotalWithVat);
+    const net = round2(gross / (1 + VAT_RATE / 100));
+    return { net, gross, vat: round2(gross - net), overridden: true, free: gross <= 0 };
+  }
+  const a = computeOrderAmounts(count);
+  return { ...a, overridden: false, free: false };
+}
+
+// Položky faktúry: pri override jedna súhrnná položka, inak po okresoch.
+function itemsFor(names: string[], amounts: { overridden: boolean; net: number }): InvoiceItem[] {
+  if (amounts.overridden) {
+    return [
+      {
+        name: `Ročné zastúpenie zhotoviteľa — okresy: ${names.join(", ")} (zemneavykopoveprace.sk)`,
+        quantity: 1,
+        priceWithoutTax: amounts.net,
+        taxPercentage: VAT_RATE,
+        type: "ks",
+        discount: 0,
+      },
+    ];
+  }
+  return buildItems(names);
+}
 
 function digits(s: string): number | null {
   const n = Number(String(s).replace(/\D/g, ""));
@@ -168,7 +200,8 @@ export async function createProformaForOrder(orderId: string) {
   if (!order) throw new Error("Objednávka neexistuje");
 
   const names = await loadOrderDistrictNames(order);
-  const amounts = computeOrderAmounts(names.length);
+  const amounts = resolveAmounts(order, names.length);
+  if (amounts.free) return null; // služba zdarma → predfaktúra sa nevystavuje
   const num = await allocateNumber("proforma");
 
   const invoice = await prisma.invoice.create({
@@ -194,7 +227,7 @@ export async function createProformaForOrder(orderId: string) {
       variableSymbol: num.variableSymbol,
       issuer: ISSUER,
       receiver: buildReceiver(order),
-      items: buildItems(names),
+      items: itemsFor(names, amounts),
       paymentType: "TRANSFER",
     });
     return await prisma.invoice.update({
@@ -209,6 +242,16 @@ export async function createProformaForOrder(orderId: string) {
   }
 }
 
+/** Zruší doterajšie (nezaplatené) predfaktúry objednávky a vystaví novú s aktuálnou cenou.
+ *  Použi po manuálnej úprave ceny adminom. Pri službe zdarma vráti null. */
+export async function reissueProformaForOrder(orderId: string) {
+  await prisma.invoice.updateMany({
+    where: { orderId, type: "proforma", status: { notIn: ["paid"] } },
+    data: { status: "cancelled" },
+  });
+  return await createProformaForOrder(orderId);
+}
+
 /** Znovu sa pokúsi vystaviť existujúcu faktúru v Účto+ (pending/failed) — bez duplikátu. */
 export async function retryInvoiceIssue(invoiceId: string) {
   const invoice = await prisma.invoice.findUnique({
@@ -221,6 +264,7 @@ export async function retryInvoiceIssue(invoiceId: string) {
 
   const isFinal = invoice.type === "final";
   const names = await loadOrderDistrictNames(invoice.order);
+  const amounts = resolveAmounts(invoice.order, names.length);
   const today = new Date().toISOString().slice(0, 10);
   try {
     const created = await new UctoPlusClient().createInvoice({
@@ -230,7 +274,7 @@ export async function retryInvoiceIssue(invoiceId: string) {
       variableSymbol: invoice.variableSymbol,
       issuer: ISSUER,
       receiver: buildReceiver(invoice.order),
-      items: buildItems(names),
+      items: itemsFor(names, amounts),
       paymentType: "TRANSFER",
       dateDelivery: isFinal ? today : undefined,
     });
@@ -267,51 +311,53 @@ export async function markOrderPaidAndInvoice(orderId: string) {
   const existingFinal = order.invoices.find((i) => i.type === "final") ?? null;
 
   const names = await loadOrderDistrictNames(order);
-  const amounts = computeOrderAmounts(names.length);
+  const amounts = resolveAmounts(order, names.length);
 
-  // Vytvor (alebo znovupoužiť) ostrú faktúru.
+  // Vytvor (alebo znovupoužiť) ostrú faktúru — pri službe zdarma sa faktúra nevystavuje.
   let final = existingFinal;
-  if (!final) {
-    const num = await allocateNumber("final");
-    final = await prisma.invoice.create({
-      data: {
-        orderId,
-        type: "final",
-        status: "pending",
-        relatedProformaId: proforma?.id ?? null,
-        invoiceNumber: num.invoiceNumber,
-        variableSymbol: num.variableSymbol,
-        amountWithoutVat: amounts.net,
-        amountWithVat: amounts.gross,
-        vatRate: VAT_RATE,
-      },
-    });
-  }
+  if (!amounts.free) {
+    if (!final) {
+      const num = await allocateNumber("final");
+      final = await prisma.invoice.create({
+        data: {
+          orderId,
+          type: "final",
+          status: "pending",
+          relatedProformaId: proforma?.id ?? null,
+          invoiceNumber: num.invoiceNumber,
+          variableSymbol: num.variableSymbol,
+          amountWithoutVat: amounts.net,
+          amountWithVat: amounts.gross,
+          vatRate: VAT_RATE,
+        },
+      });
+    }
 
-  if (uctoplusEnabled() && final.status !== "issued" && final.status !== "paid") {
-    const today = new Date().toISOString().slice(0, 10);
-    try {
-      const created = await new UctoPlusClient().createInvoice({
-        kind: "issued",
-        counterId: INVOICE_COUNTER_ID,
-        invoiceNumber: final.invoiceNumber,
-        variableSymbol: final.variableSymbol,
-        issuer: ISSUER,
-        receiver: buildReceiver(order),
-        items: buildItems(names),
-        paymentType: "TRANSFER",
-        dateDelivery: today,
-      });
-      final = await prisma.invoice.update({
-        where: { id: final.id },
-        data: issuedData(created, true),
-      });
-    } catch (e) {
-      await prisma.invoice.update({
-        where: { id: final.id },
-        data: { status: "failed", lastError: String(e).slice(0, 500) },
-      });
-      throw new Error(`Ostrú faktúru sa nepodarilo vystaviť cez Účto+: ${String(e).slice(0, 200)}`);
+    if (uctoplusEnabled() && final.status !== "issued" && final.status !== "paid") {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        const created = await new UctoPlusClient().createInvoice({
+          kind: "issued",
+          counterId: INVOICE_COUNTER_ID,
+          invoiceNumber: final.invoiceNumber,
+          variableSymbol: final.variableSymbol,
+          issuer: ISSUER,
+          receiver: buildReceiver(order),
+          items: itemsFor(names, amounts),
+          paymentType: "TRANSFER",
+          dateDelivery: today,
+        });
+        final = await prisma.invoice.update({
+          where: { id: final.id },
+          data: issuedData(created, true),
+        });
+      } catch (e) {
+        await prisma.invoice.update({
+          where: { id: final.id },
+          data: { status: "failed", lastError: String(e).slice(0, 500) },
+        });
+        throw new Error(`Ostrú faktúru sa nepodarilo vystaviť cez Účto+: ${String(e).slice(0, 200)}`);
+      }
     }
   }
 

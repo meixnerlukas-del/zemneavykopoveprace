@@ -184,6 +184,10 @@ model Order {
   createdAt     DateTime @default(now())
   handled       Boolean  @default(false)
   paidAt        DateTime?
+  // Manuálna úprava ceny adminom: konečná cena s DPH. null = štandardná cena,
+  // 0 = zdarma, nižšie = zľava, ľubovoľné = vlastná cena.
+  overrideTotalWithVat Decimal?
+  priceNote     String? // dôvod úpravy ceny (interná poznámka)
   invoices      Invoice[]
 }
 

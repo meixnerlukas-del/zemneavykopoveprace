@@ -35,6 +35,21 @@ async function profileIdBySlug(slug: string): Promise<string> {
   return d.profile.id;
 }
 
+// Predĺženie služby o 1 rok (od aktuálnej platnosti, alebo od dnes ak už expiroval/nie je).
+export async function extendExpiry(slug: string) {
+  await requireAuth();
+  const profileId = await profileIdBySlug(slug);
+  const p = await prisma.profile.findUnique({
+    where: { id: profileId },
+    select: { expiresAt: true },
+  });
+  const now = new Date();
+  const base = p?.expiresAt && p.expiresAt > now ? new Date(p.expiresAt) : now;
+  base.setFullYear(base.getFullYear() + 1);
+  await prisma.profile.update({ where: { id: profileId }, data: { expiresAt: base } });
+  revalidatePath(`/admin/okres/${slug}`);
+}
+
 export async function updateProfile(slug: string, fd: FormData) {
   await requireAuth();
   const profileId = await profileIdBySlug(slug);

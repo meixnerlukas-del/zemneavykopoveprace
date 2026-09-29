@@ -11,6 +11,7 @@ import {
   addVideo,
   addReview,
   deleteChild,
+  extendExpiry,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,18 @@ export default async function EditProfilePage({
           Zobraziť stránku ↗
         </Link>
       </div>
+
+      {/* PREDĹŽENIE SLUŽBY */}
+      <form action={extendExpiry.bind(null, slug)} className="mt-6 flex flex-wrap items-center gap-3 border border-jcb bg-paper p-4">
+        <span className="text-sm">
+          <strong>Platnosť služby do:</strong>{" "}
+          {p.expiresAt ? new Date(p.expiresAt).toLocaleDateString("sk-SK") : "nenastavená"}
+        </span>
+        <button className="bg-jcb px-4 py-2 text-sm font-medium uppercase tracking-[0.05em] text-jcb-ink hover:opacity-90">
+          Predĺžiť o +1 rok
+        </button>
+        <span className="text-xs text-muted">(alebo nastav presný dátum nižšie v sekcii Stav a fakturácia)</span>
+      </form>
 
       {/* HLAVNÝ FORMULÁR */}
       <form action={updateProfile.bind(null, slug)} className="mt-6 grid gap-6 bg-paper p-6">
