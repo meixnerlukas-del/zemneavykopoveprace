@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { REGIONS } from "@/lib/districts";
+import { getBasePriceWithVat } from "@/lib/settings";
+import { formatEur } from "@/lib/pricing";
 import OrderForm from "@/components/OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -29,13 +31,14 @@ export default async function OrderPage() {
     occupied: !!d.profile && d.profile.status !== "FREE",
   }));
   const freeCount = items.filter((i) => !i.occupied).length;
+  const basePrice = await getBasePriceWithVat();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-3xl uppercase sm:text-4xl">Objednávka okresu</h1>
       <p className="mt-4 text-muted">
         Vyberte voľné okresy, vyplňte fakturačné údaje a odošlite objednávku. Cena
-        prvého okresu je 196,80 € s DPH/rok, každý ďalší so zľavou 25 %. Po odoslaní
+        prvého okresu je {formatEur(basePrice)} s DPH/rok, každý ďalší so zľavou 25 %. Po odoslaní
         vám vystavíme predfaktúru s platobnými údajmi.
       </p>
 
@@ -45,7 +48,7 @@ export default async function OrderPage() {
         </p>
       ) : (
         <div className="mt-10">
-          <OrderForm districts={items} regions={REGIONS} />
+          <OrderForm districts={items} regions={REGIONS} base={basePrice} />
         </div>
       )}
     </div>

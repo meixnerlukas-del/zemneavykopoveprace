@@ -188,7 +188,17 @@ model Order {
   // 0 = zdarma, nižšie = zľava, ľubovoľné = vlastná cena.
   overrideTotalWithVat Decimal?
   priceNote     String? // dôvod úpravy ceny (interná poznámka)
+  // Zafixovaná štandardná cena za okres (s DPH) v čase objednávky — aby zmena
+  // globálnej ceny neovplyvnila už existujúce objednávky. null = pôvodná (196,80).
+  basePriceWithVat Decimal?
   invoices      Invoice[]
+}
+
+// Globálne nastavenia platformy (kľúč → hodnota). Napr. pricePerDistrictWithVat.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 // Faktúry k objednávke. Predfaktúra (proforma) sa vystaví hneď po objednávke,

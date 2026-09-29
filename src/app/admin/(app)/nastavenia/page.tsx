@@ -2,8 +2,24 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { getBasePriceWithVat, setBasePriceWithVat } from "@/lib/settings";
+import { formatEur, PRICE_PER_DISTRICT } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
+
+// Globálna štandardná cena za okres (s DPH). Platí pre nové objednávky; už existujúce
+// objednávky majú cenu zafixovanú (Order.basePriceWithVat), preto sa nezmenia.
+async function changeBasePrice(formData: FormData) {
+  "use server";
+  if (!(await auth())) throw new Error("Neautorizované");
+  const raw = String(formData.get("price") ?? "").trim().replace(",", ".");
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    redirect("/admin/nastavenia?error=cena");
+  }
+  await setBasePriceWithVat(Math.round(value * 100) / 100);
+  redirect("/admin/nastavenia?ok=cena");
+}
 
 async function changePassword(formData: FormData) {
   "use server";
@@ -35,6 +51,7 @@ export default async function SettingsPage({
 }) {
   const { error, ok } = await searchParams;
   const session = await auth();
+  const basePrice = await getBasePriceWithVat();
   const field = "w-full border border-concrete px-3 py-2 text-sm focus:border-jcb focus:outline-none";
   const lbl = "mb-1 block text-sm uppercase tracking-[0.05em] text-muted";
 
@@ -43,8 +60,38 @@ export default async function SettingsPage({
       <h1 className="text-2xl uppercase">Nastavenia</h1>
       <p className="mt-2 text-sm text-muted">Prihlásený: {session?.user?.email}</p>
 
+      <h2 className="mt-8 border-b-2 border-asphalt pb-1 text-lg uppercase">Cena za okres</h2>
+      <p className="mt-2 text-sm text-muted">
+        Jednotná štandardná cena za prvý okres (s DPH). Každý ďalší okres v jednej objednávke
+        má automaticky zľavu 25 %. Zmena platí len pre <strong>nové</strong> objednávky — už
+        vystavené a existujúce objednávky si zachovajú pôvodnú cenu.
+      </p>
+      {ok === "cena" && <p className="mt-3 border-l-4 border-jcb bg-paper p-3 text-sm">Cena bola uložená.</p>}
+      {error === "cena" && <p className="mt-3 text-sm text-red-700">Zadajte platnú cenu väčšiu ako 0.</p>}
+      <p className="mt-3 text-sm">
+        Aktuálna cena: <strong>{formatEur(basePrice)}</strong> s DPH / okres / rok
+        {Math.abs(basePrice - PRICE_PER_DISTRICT) > 0.001 && (
+          <span className="text-muted"> (pôvodná {formatEur(PRICE_PER_DISTRICT)})</span>
+        )}
+      </p>
+      <form action={changeBasePrice} className="mt-3 flex flex-wrap items-end gap-3">
+        <label>
+          <span className={lbl}>Nová cena s DPH (€)</span>
+          <input
+            name="price"
+            defaultValue={String(basePrice)}
+            inputMode="decimal"
+            required
+            className={`${field} w-40`}
+          />
+        </label>
+        <button className="bg-jcb px-6 py-3 text-sm font-medium uppercase tracking-[0.05em] text-jcb-ink hover:opacity-90">
+          Uložiť cenu
+        </button>
+      </form>
+
       <h2 className="mt-8 border-b-2 border-asphalt pb-1 text-lg uppercase">Zmena hesla</h2>
-      {ok && <p className="mt-3 border-l-4 border-jcb bg-paper p-3 text-sm">Heslo bolo zmenené.</p>}
+      {ok === "1" && <p className="mt-3 border-l-4 border-jcb bg-paper p-3 text-sm">Heslo bolo zmenené.</p>}
       {error === "heslo" && <p className="mt-3 text-sm text-red-700">Nesprávne súčasné heslo.</p>}
       {error === "validacia" && <p className="mt-3 text-sm text-red-700">Nové heslo musí mať aspoň 8 znakov a zhodovať sa.</p>}
 

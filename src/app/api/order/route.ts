@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, OPERATOR_EMAIL } from "@/lib/email";
 import { rateLimit } from "@/lib/rateLimit";
 import { computeOrderTotal, formatEur } from "@/lib/pricing";
+import { getBasePriceWithVat } from "@/lib/settings";
 import { createProformaForOrder, OPERATOR_IBAN, PAYMENT_DUE_DAYS } from "@/lib/invoicing";
 
 export async function POST(req: NextRequest) {
@@ -78,7 +79,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const total = computeOrderTotal(freeDistricts.length);
+  // Zafixuj aktuálnu globálnu štandardnú cenu za okres do objednávky, aby neskoršia
+  // zmena ceny v nastaveniach neovplyvnila už existujúce objednávky.
+  const base = await getBasePriceWithVat();
+  const total = computeOrderTotal(freeDistricts.length, base);
   const districtNames = freeDistricts.map((d) => d.name).join(", ");
 
   const order = await prisma.order.create({
@@ -94,6 +98,7 @@ export async function POST(req: NextRequest) {
       districts: freeDistricts.map((d) => d.slug).join(","),
       note,
       termsAccepted,
+      basePriceWithVat: base,
     },
   });
 

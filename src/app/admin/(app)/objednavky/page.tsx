@@ -196,7 +196,7 @@ export default async function OrdersPage() {
                     <div className="mt-2 border border-concrete p-3">
                       <p className="mb-1 text-xs uppercase tracking-[0.06em] text-muted">Cena / zľava / zdarma</p>
                       <p className="text-xs text-muted">
-                        Štandardná cena: {formatEur(computeOrderTotal(o.districts.split(",").filter(Boolean).length))} s DPH.
+                        Štandardná cena: {formatEur(computeOrderTotal(o.districts.split(",").filter(Boolean).length, o.basePriceWithVat != null ? Number(o.basePriceWithVat) : undefined))} s DPH.
                         {o.overrideTotalWithVat != null && (
                           <> Nastavené:{" "}
                             <strong>

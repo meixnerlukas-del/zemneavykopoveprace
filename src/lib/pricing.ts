@@ -3,35 +3,39 @@ export const PRICE_PER_DISTRICT = 196.8;
 export const ADDITIONAL_DISCOUNT = 0.25;
 export const VAT_RATE = 20; // % — Metraco je platca DPH (IČ DPH SK2120143707)
 
-export function additionalDistrictPrice(): number {
-  return PRICE_PER_DISTRICT * (1 - ADDITIONAL_DISCOUNT); // 147,60 €
+// Voliteľný `base` = štandardná cena za okres s DPH (globálne meniteľná). Default = 196,80.
+export function additionalDistrictPrice(base: number = PRICE_PER_DISTRICT): number {
+  return base * (1 - ADDITIONAL_DISCOUNT);
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Cena okresu BEZ DPH podľa poradia (0 = prvý plný, ďalšie −25 %). */
-export function districtNetPrice(index: number): number {
-  const withVat = index === 0 ? PRICE_PER_DISTRICT : additionalDistrictPrice();
-  return round2(withVat / (1 + VAT_RATE / 100)); // 196,80→164,00 ; 147,60→123,00
+export function districtNetPrice(index: number, base: number = PRICE_PER_DISTRICT): number {
+  const withVat = index === 0 ? base : additionalDistrictPrice(base);
+  return round2(withVat / (1 + VAT_RATE / 100));
 }
 
 /** Sumy objednávky za `count` okresov: netto, DPH a brutto (zaokrúhlené). */
-export function computeOrderAmounts(count: number): {
+export function computeOrderAmounts(
+  count: number,
+  base: number = PRICE_PER_DISTRICT,
+): {
   net: number;
   vat: number;
   gross: number;
 } {
   let net = 0;
-  for (let i = 0; i < Math.max(0, count); i++) net += districtNetPrice(i);
+  for (let i = 0; i < Math.max(0, count); i++) net += districtNetPrice(i, base);
   net = round2(net);
   const gross = round2(net * (1 + VAT_RATE / 100));
   return { net, vat: round2(gross - net), gross };
 }
 
 /** Celková cena za `count` okresov (prvý plný, každý ďalší −25 %). */
-export function computeOrderTotal(count: number): number {
+export function computeOrderTotal(count: number, base: number = PRICE_PER_DISTRICT): number {
   if (count <= 0) return 0;
-  const total = PRICE_PER_DISTRICT + (count - 1) * additionalDistrictPrice();
+  const total = base + (count - 1) * additionalDistrictPrice(base);
   return Math.round(total * 100) / 100;
 }
 

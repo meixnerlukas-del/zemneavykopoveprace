@@ -7,7 +7,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { computeOrderAmounts, districtNetPrice, VAT_RATE } from "@/lib/pricing";
+import { computeOrderAmounts, districtNetPrice, VAT_RATE, PRICE_PER_DISTRICT } from "@/lib/pricing";
 import {
   UctoPlusClient,
   uctoplusEnabled,
@@ -87,23 +87,30 @@ type OrderRow = {
   districts: string;
   paidAt: Date | null;
   overrideTotalWithVat: Prisma.Decimal | null;
+  basePriceWithVat: Prisma.Decimal | null;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-// Sumy objednávky: buď manuálny override (zdarma/zľava/vlastná cena), alebo štandardný cenník.
+// Sumy objednávky: manuálny override (zdarma/zľava/vlastná cena) alebo cenník
+// so zafixovanou štandardnou cenou objednávky (basePriceWithVat, fallback 196,80).
 function resolveAmounts(order: OrderRow, count: number) {
+  const base =
+    order.basePriceWithVat != null ? Number(order.basePriceWithVat) : PRICE_PER_DISTRICT;
   if (order.overrideTotalWithVat != null) {
     const gross = Number(order.overrideTotalWithVat);
     const net = round2(gross / (1 + VAT_RATE / 100));
-    return { net, gross, vat: round2(gross - net), overridden: true, free: gross <= 0 };
+    return { net, gross, vat: round2(gross - net), overridden: true, free: gross <= 0, base };
   }
-  const a = computeOrderAmounts(count);
-  return { ...a, overridden: false, free: false };
+  const a = computeOrderAmounts(count, base);
+  return { ...a, overridden: false, free: false, base };
 }
 
-// Položky faktúry: pri override jedna súhrnná položka, inak po okresoch.
-function itemsFor(names: string[], amounts: { overridden: boolean; net: number }): InvoiceItem[] {
+// Položky faktúry: pri override jedna súhrnná položka, inak po okresoch (so zafixovanou cenou).
+function itemsFor(
+  names: string[],
+  amounts: { overridden: boolean; net: number; base: number },
+): InvoiceItem[] {
   if (amounts.overridden) {
     return [
       {
@@ -116,7 +123,7 @@ function itemsFor(names: string[], amounts: { overridden: boolean; net: number }
       },
     ];
   }
-  return buildItems(names);
+  return buildItems(names, amounts.base);
 }
 
 function digits(s: string): number | null {
@@ -153,11 +160,11 @@ function buildReceiver(order: OrderRow): InvoiceReceiver {
   };
 }
 
-function buildItems(districtNames: string[]): InvoiceItem[] {
+function buildItems(districtNames: string[], base: number = PRICE_PER_DISTRICT): InvoiceItem[] {
   return districtNames.map((name, i) => ({
     name: `Ročný profil zhotoviteľa — okres ${name} (zemneavykopoveprace.sk)`,
     quantity: 1,
-    priceWithoutTax: districtNetPrice(i),
+    priceWithoutTax: districtNetPrice(i, base),
     taxPercentage: VAT_RATE,
     type: "ks",
     discount: 0,

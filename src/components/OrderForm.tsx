@@ -5,9 +5,9 @@ import Link from "next/link";
 import { computeOrderTotal, formatEur, PRICE_PER_DISTRICT, additionalDistrictPrice } from "@/lib/pricing";
 
 type DistrictItem = { slug: string; name: string; region: string; occupied: boolean };
-type Props = { districts: DistrictItem[]; regions: readonly string[] };
+type Props = { districts: DistrictItem[]; regions: readonly string[]; base?: number };
 
-export default function OrderForm({ districts, regions }: Props) {
+export default function OrderForm({ districts, regions, base = PRICE_PER_DISTRICT }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [state, setState] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export default function OrderForm({ districts, regions }: Props) {
     () => districts.filter((d) => selected.has(d.slug)),
     [districts, selected],
   );
-  const total = computeOrderTotal(selected.size);
+  const total = computeOrderTotal(selected.size, base);
 
   function toggle(slug: string) {
     setSelected((prev) => {
@@ -188,7 +188,7 @@ export default function OrderForm({ districts, regions }: Props) {
               {selectedList.map((d, i) => (
                 <li key={d.slug} className="flex justify-between">
                   <span>{i === 0 ? d.name : `${d.name} (−25 %)`}</span>
-                  <span>{formatEur(i === 0 ? PRICE_PER_DISTRICT : additionalDistrictPrice())}</span>
+                  <span>{formatEur(i === 0 ? base : additionalDistrictPrice(base))}</span>
                 </li>
               ))}
             </ul>
