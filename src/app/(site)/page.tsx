@@ -4,6 +4,8 @@ import { REGIONS, districtProfileSlug } from "@/lib/districts";
 import type { DistrictPoint } from "@/lib/geo";
 import DistrictMap from "@/components/DistrictMap";
 import { getBlockHtml } from "@/lib/pageContent";
+import { getBasePriceWithVat } from "@/lib/settings";
+import { formatEur } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,7 @@ export default async function HomePage() {
     }));
 
   const occupiedCount = points.filter((p) => p.occupied).length;
+  const basePrice = await getBasePriceWithVat();
   const heroHtml = await getBlockHtml("home_hero");
 
   const orgJsonLd = {
@@ -137,7 +140,7 @@ export default async function HomePage() {
             </h2>
             <p className="mt-1 text-jcb-ink/80">
               {occupiedCount} z {points.length} okresov je obsadených ·
-              exkluzivita · 196,80 € s DPH / rok · zľava 25 % na každý ďalší
+              exkluzivita · {formatEur(basePrice)} s DPH / rok · zľava 25 % na každý ďalší
               okres.
             </p>
           </div>

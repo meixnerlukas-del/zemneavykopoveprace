@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { getBasePriceWithVat } from "@/lib/settings";
+import { formatEur } from "@/lib/pricing";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Obchodné podmienky",
@@ -6,13 +10,14 @@ export const metadata: Metadata = {
     "Obchodné podmienky spolupráce na portáli zemneavykopoveprace.sk. Účinné od 1. mája 2025.",
 };
 
-const SECTIONS: { heading: string; items: string[] }[] = [
+function getSections(priceLabel: string): { heading: string; items: string[] }[] {
+  return [
   {
     heading: "1. Exkluzívne zastúpenie v okrese",
     items: [
       "Portál poskytuje výhradné zastúpenie pre každý okres, pričom na jeden okres je pridelený len jeden Partner.",
       "Partner si môže rezervovať aj viacero okresov, o pridelení rozhoduje poradie úhrad.",
-      "Cena za registráciu a zverejnenie v jednom okrese je 196,80 € s DPH / rok.",
+      `Cena za registráciu a zverejnenie v jednom okrese je ${priceLabel} s DPH / rok.`,
       "Zľava 25 % sa uplatňuje pri registrácii ďalšieho okresu alebo pri predĺžení spolupráce o rok a viac.",
     ],
   },
@@ -109,9 +114,12 @@ const SECTIONS: { heading: string; items: string[] }[] = [
       "Právne vzťahy, ktoré nie sú upravené týmito podmienkami, sa riadia zákonmi Slovenskej republiky.",
     ],
   },
-];
+  ];
+}
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const basePrice = await getBasePriceWithVat();
+  const SECTIONS = getSections(formatEur(basePrice));
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-3xl uppercase sm:text-4xl">Obchodné podmienky</h1>

@@ -2,7 +2,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { getBasePriceWithVat, setBasePriceWithVat } from "@/lib/settings";
+import {
+  getPriceInfo,
+  setBasePriceWithVat,
+  setOriginalPriceWithVat,
+  setPriceValidUntil,
+} from "@/lib/settings";
 import { formatEur, PRICE_PER_DISTRICT } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +23,16 @@ async function changeBasePrice(formData: FormData) {
     redirect("/admin/nastavenia?error=cena");
   }
   await setBasePriceWithVat(Math.round(value * 100) / 100);
+
+  // Nepovinná akcia: pôvodná (preškrtnutá) cena + dátum platnosti.
+  const origRaw = String(formData.get("originalPrice") ?? "").trim().replace(",", ".");
+  const origVal = origRaw === "" ? null : Number(origRaw);
+  await setOriginalPriceWithVat(
+    origVal != null && Number.isFinite(origVal) && origVal > 0 ? Math.round(origVal * 100) / 100 : null,
+  );
+  const validUntil = String(formData.get("validUntil") ?? "").trim();
+  await setPriceValidUntil(validUntil || null);
+
   redirect("/admin/nastavenia?ok=cena");
 }
 
@@ -51,7 +66,9 @@ export default async function SettingsPage({
 }) {
   const { error, ok } = await searchParams;
   const session = await auth();
-  const basePrice = await getBasePriceWithVat();
+  const price = await getPriceInfo();
+  const basePrice = price.base;
+  const validUntilInput = price.validUntil ? price.validUntil.toISOString().slice(0, 10) : "";
   const field = "w-full border border-concrete px-3 py-2 text-sm focus:border-jcb focus:outline-none";
   const lbl = "mb-1 block text-sm uppercase tracking-[0.05em] text-muted";
 
@@ -74,20 +91,51 @@ export default async function SettingsPage({
           <span className="text-muted"> (pôvodná {formatEur(PRICE_PER_DISTRICT)})</span>
         )}
       </p>
-      <form action={changeBasePrice} className="mt-3 flex flex-wrap items-end gap-3">
-        <label>
-          <span className={lbl}>Nová cena s DPH (€)</span>
-          <input
-            name="price"
-            defaultValue={String(basePrice)}
-            inputMode="decimal"
-            required
-            className={`${field} w-40`}
-          />
-        </label>
-        <button className="bg-jcb px-6 py-3 text-sm font-medium uppercase tracking-[0.05em] text-jcb-ink hover:opacity-90">
-          Uložiť cenu
-        </button>
+      <form action={changeBasePrice} className="mt-3 grid gap-3 sm:max-w-lg">
+        <div className="flex flex-wrap items-end gap-3">
+          <label>
+            <span className={lbl}>Nová cena s DPH (€)</span>
+            <input
+              name="price"
+              defaultValue={String(basePrice)}
+              inputMode="decimal"
+              required
+              className={`${field} w-40`}
+            />
+          </label>
+        </div>
+
+        <p className="mt-2 text-sm text-muted">
+          Nepovinná akcia — ak chceš na webe ukázať zľavu. Pôvodnú cenu necháš prázdnu,
+          ak sa nemá zobraziť. Dátum necháš prázdny, ak nemá byť žiadne obmedzenie platnosti.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label>
+            <span className={lbl}>Pôvodná cena (preškrtnutá, €)</span>
+            <input
+              name="originalPrice"
+              defaultValue={price.original != null ? String(price.original) : ""}
+              inputMode="decimal"
+              placeholder="napr. 249"
+              className={`${field} w-40`}
+            />
+          </label>
+          <label>
+            <span className={lbl}>Cena platí do (nepovinné)</span>
+            <input
+              name="validUntil"
+              type="date"
+              defaultValue={validUntilInput}
+              className={`${field} w-48`}
+            />
+          </label>
+        </div>
+
+        <div>
+          <button className="bg-jcb px-6 py-3 text-sm font-medium uppercase tracking-[0.05em] text-jcb-ink hover:opacity-90">
+            Uložiť cenu
+          </button>
+        </div>
       </form>
 
       <h2 className="mt-8 border-b-2 border-asphalt pb-1 text-lg uppercase">Zmena hesla</h2>

@@ -9,6 +9,8 @@ import {
   youtubeId,
 } from "@/lib/districts";
 import { haversineKm } from "@/lib/geo";
+import { getBasePriceWithVat } from "@/lib/settings";
+import { formatEur } from "@/lib/pricing";
 import SeatMap from "@/components/SeatMap";
 import Gallery from "@/components/Gallery";
 import InquiryForm from "@/components/InquiryForm";
@@ -69,6 +71,7 @@ export default async function DistrictProfilePage({ params }: Params) {
 
   const profile = district.profile;
   const published = profile?.status === "PUBLISHED";
+  const basePrice = await getBasePriceWithVat();
 
   // Susedné okresy = geograficky najbližšie podľa centroidov (aj cez hranice krajov)
   const allDistricts = await prisma.district.findMany({
@@ -167,7 +170,7 @@ export default async function DistrictProfilePage({ params }: Params) {
           neighbors={neighbors}
         />
       ) : (
-        <FreeDistrict district={district} neighbors={neighbors} />
+        <FreeDistrict district={district} neighbors={neighbors} basePrice={basePrice} />
       )}
     </>
   );
@@ -426,9 +429,11 @@ function PublishedProfile({
 function FreeDistrict({
   district,
   neighbors,
+  basePrice,
 }: {
   district: { name: string; slug: string };
   neighbors: { name: string; slug: string }[];
+  basePrice: number;
 }) {
   return (
     <>
@@ -443,7 +448,7 @@ function FreeDistrict({
             jedna firma na okres, žiadna konkurencia, žiadne cudzie reklamy.
           </p>
           <p className="mt-6 text-2xl font-medium text-asphalt">
-            196,80 € s DPH / rok
+            {formatEur(basePrice)} s DPH / rok
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Link

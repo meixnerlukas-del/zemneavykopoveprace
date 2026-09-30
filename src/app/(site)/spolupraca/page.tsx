@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatEur, PRICE_PER_DISTRICT, additionalDistrictPrice } from "@/lib/pricing";
+import { formatEur, additionalDistrictPrice } from "@/lib/pricing";
+import { getPriceInfo } from "@/lib/settings";
 import { getBlockHtml } from "@/lib/pageContent";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Spolupráca — staňte sa partnerom vo svojom okrese",
-  description:
-    "Exkluzívne zastúpenie zemných a výkopových prác vo vašom okrese. Nulová konkurencia, cielení zákazníci, žiadne cudzie reklamy. 196,80 € s DPH/rok.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { base } = await getPriceInfo();
+  return {
+    title: "Spolupráca — staňte sa partnerom vo svojom okrese",
+    description: `Exkluzívne zastúpenie zemných a výkopových prác vo vašom okrese. Nulová konkurencia, cielení zákazníci, žiadne cudzie reklamy. ${formatEur(base)} s DPH/rok.`,
+  };
+}
 
 const BENEFITS = [
   ["Exkluzivita pre váš okres", "Každý okres má len jedno miesto pre dodávateľa — nulová konkurencia."],
@@ -25,6 +28,8 @@ export default async function SpolupracaPage() {
   const freeCount = await prisma.district.count({
     where: { profile: { status: "FREE" } },
   });
+  const price = await getPriceInfo();
+  const basePrice = price.base;
   const introHtml = await getBlockHtml("spolupraca_intro");
 
   return (
@@ -69,11 +74,16 @@ export default async function SpolupracaPage() {
           <ul className="space-y-3 text-lg">
             <li className="flex justify-between border-b border-concrete pb-2">
               <span>Prvý okres / rok s DPH</span>
-              <strong>{formatEur(PRICE_PER_DISTRICT)}</strong>
+              <span>
+                {price.original != null && (
+                  <s className="mr-2 text-muted">{formatEur(price.original)}</s>
+                )}
+                <strong>{formatEur(basePrice)}</strong>
+              </span>
             </li>
             <li className="flex justify-between border-b border-concrete pb-2">
               <span>Každý ďalší okres (−25 %)</span>
-              <strong>{formatEur(additionalDistrictPrice())}</strong>
+              <strong>{formatEur(additionalDistrictPrice(basePrice))}</strong>
             </li>
             <li className="flex justify-between border-b border-concrete pb-2">
               <span>Predĺženie o rok a viac</span>
@@ -84,6 +94,19 @@ export default async function SpolupracaPage() {
               <strong>10 € s DPH</strong>
             </li>
           </ul>
+          {(price.original != null || price.validUntil != null) && (
+            <p className="mt-4 border-l-4 border-jcb bg-paper p-3 text-sm">
+              {price.original != null && (
+                <>
+                  Akciová cena namiesto{" "}
+                  <s className="text-muted">{formatEur(price.original)}</s>.{" "}
+                </>
+              )}
+              {price.validUntil != null && (
+                <>Cena platí do {price.validUntil.toLocaleDateString("sk-SK")}.</>
+              )}
+            </p>
+          )}
           <p className="mt-6 text-sm text-muted">
             Proces: záujem → objednávkový formulár → faktúra a požiadavka na podklady →
             platba a podklady → zverejnenie do 5 pracovných dní → služba platí 12
